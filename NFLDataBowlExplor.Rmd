@@ -1,0 +1,68 @@
+---
+title: "NFL Data Bowl Practice"
+author: "Dominic Hoar-Weiler"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Importing Data
+
+```{r}
+library(tidyverse)
+player_raw_data <- read_csv("players.csv")
+plays_raw_data <- read_csv("plays.csv")
+head(player_raw_data)
+head(plays_raw_data)
+sum <- summary(player_raw_data)
+structure <- str(player_raw_data)
+```
+
+#Exploring the Data
+
+```{r}
+
+# Calculate average weight by college, sort in descending order, and select top 5
+info_by_college <- player_raw_data |>
+                    group_by(collegeName) |>
+                    summarize(num_players = n(),
+                              weight = mean(weight)) |>
+                    filter(num_players > 10) |>
+                    arrange(-weight) |>
+                    filter(weight > 250)
+
+print(info_by_college)
+
+ggplot(data = info_by_college,
+       aes(x = weight,y=reorder(collegeName,+weight))) + 
+       geom_bar(stat = "identity",fill ="steelblue") +
+       theme_minimal() +
+        labs(x = "Weight",
+            y = "College")
+
+```
+
+```{r}
+sorted_4th_down <- plays_raw_data |>
+                   filter(down == 4)  |>
+                   mutate(firstDown = yardsGained >= yardsToGo) |>
+                   group_by(possessionTeam) |>
+                   summarize(num_plays = n(),
+                             firstDowns = sum(firstDown,na.rm = TRUE)) |>
+                   mutate(firstDownConversionPctg = (firstDowns/num_plays)*100)
+                   arrange(-firstDownConversionPctg) |>
+                   mutate(firstDownConversionPctg = paste0(round(firstDownConversionPctg,2),'%')) 
+                   
+
+print(sorted_4th_down)
+```
+
+
+```{r}
+lm.yardsByPlayClock <- lm(yardsGained ~ playClockAtSnap + timeToThrow,plays_raw_data)
+
+summary(lm.yardsByPlayClock)
+```
