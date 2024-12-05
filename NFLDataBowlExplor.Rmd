@@ -82,8 +82,72 @@ summary(lm.yardsByPlayClock)
 
 #Nathan's Work
 
+```{r}
+#Testing quantitative variables: down, yardsToGo, offensiveFormation, recieverAlignment 
+# Drop rows with missing values in key columns
+plays_clean <- plays_raw_data %>%
+  filter(
+    !is.na(yardsGained),           
+    !is.na(down),                 
+    !is.na(yardsToGo),            
+    !is.na(offenseFormation),     
+    !is.na(receiverAlignment)   
+  )
+
+# Linear regression with pre-snap variables
+model_pre_snap <- lm(yardsGained ~ offenseFormation + yardlineSide + down + yardsToGo, data = plays_clean)
+
+# Summary of the model
+summary(model_pre_snap)
+```
+```{r}
+#cleaning for offensiveFormation for ANOVA test 
+plays_clean <- plays_clean %>%
+  filter(offenseFormation != "EMPTY")
+
+# Boxplot after cleaning
+plays_clean %>%
+  ggplot(aes(x = offenseFormation, y = yardsGained)) +
+  geom_boxplot() +
+  labs(
+    title = "Distribution of Yards Gained by Offensive Formation (Excluding EMPTY)",
+    x = "Offensive Formation",
+    y = "Yards Gained"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ANOVA after cleaning
+anova_model <- aov(yardsGained ~ offenseFormation, data = plays_clean)
+summary(anova_model)
+
+TukeyHSD(anova_model) #trying to see which ones difer the most
 
 
+# Calculate mean yards gained by formation
+formation_means <- plays_clean %>%
+  group_by(offenseFormation) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    count = n()
+  ) %>%
+  arrange(desc(mean_yards)) 
+
+formation_means
+
+# Bar plot of mean yards gained by formation
+formation_means %>%
+  ggplot(aes(x = reorder(offenseFormation, mean_yards), y = mean_yards)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+    title = "Mean Yards Gained by Offensive Formation",
+    x = "Offensive Formation",
+    y = "Mean Yards Gained"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
 
 
 
