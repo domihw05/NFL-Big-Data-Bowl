@@ -16,10 +16,15 @@ rm(list = ls())
 
 #Importing Data
 
+Here we upload our data from the NFL Data Bowl database. This includes data
+about each NFL player, data about each play over the time period covered, and
+tracking data over the first 9 weeks of the 2022 (I think) season.
+
 ```{r}
 library(tidyverse)
 player_raw_data <- read_csv("players.csv")
 plays_raw_data <- read_csv("plays.csv")
+<<<<<<< HEAD
 games_raw_data <- read_csv("games.csv")
 tracking1_raw <- read_csv("tracking_week_1.csv")
 tracking2_raw <- read_csv("tracking_week_2.csv")
@@ -30,6 +35,17 @@ tracking6_raw <- read_csv("tracking_week_6.csv")
 tracking7_raw <- read_csv("tracking_week_7.csv")
 tracking8_raw <- read_csv("tracking_week_8.csv")
 tracking9_raw <- read_csv("tracking_week_9.csv")
+=======
+#tracking1_raw <- read_csv("tracking_week_1.csv")
+#tracking2_raw <- read_csv("tracking_week_2.csv")
+#tracking3_raw <- read_csv("tracking_week_3.csv")
+#tracking4_raw <- read_csv("tracking_week_4.csv")
+#tracking5_raw <- read_csv("tracking_week_5.csv")
+#tracking6_raw <- read_csv("tracking_week_6.csv")
+#tracking7_raw <- read_csv("tracking_week_7.csv")
+#tracking8_raw <- read_csv("tracking_week_8.csv")
+#tracking9_raw <- read_csv("tracking_week_9.csv")
+>>>>>>> 4cbc4082539d7f429e1dd6e647f3876a8ce8d1b0
 ```
 
 #Exploring the Data
@@ -76,6 +92,7 @@ print(sorted_4th_down)
 lm.yardsByPlayClock <- lm(yardsGained ~ pff_passCoverage,plays_raw_data)
 
 summary(lm.yardsByPlayClock)
+<<<<<<< HEAD
 ```
 
 
@@ -86,3 +103,12 @@ summary(lm.yardsByPlayClock)
 
 
 
+=======
+
+Y <- plays_raw_data$yardsGained
+x <- plays_raw_data$pff_passCoverage
+boxplot(Y ~ x,col="peachpuff")
+
+anova(lm.yardsByPlayClock)
+```
+>>>>>>> 4cbc4082539d7f429e1dd6e647f3876a8ce8d1b0
