@@ -147,4 +147,38 @@ formation_means %>%
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+```{r}
+# Group by receiver alignment and calculate mean yards gained
+alignment_stats <- plays_clean %>%
+  group_by(receiverAlignment) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    count = n()
+  ) %>%
+  arrange(desc(mean_yards))
 
+# View the summary stats
+alignment_stats
+
+# Boxplot for yards gained by receiver alignment
+plays_clean %>%
+  ggplot(aes(x = receiverAlignment, y = yardsGained)) +
+  geom_boxplot() +
+  labs(
+    title = "Impact of Receiver Alignment on Yards Gained",
+    x = "Receiver Alignment",
+    y = "Yards Gained"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ANOVA test for receiver alignment
+anova_alignment <- aov(yardsGained ~ receiverAlignment, data = plays_clean)
+summary(anova_alignment)
+
+
+```
+```{r}
+tukey_alignment <- TukeyHSD(anova_alignment)
+tukey_alignment
+```
