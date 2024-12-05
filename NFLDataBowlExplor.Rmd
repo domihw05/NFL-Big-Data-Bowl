@@ -9,12 +9,18 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+#Click to clear environment
+rm(list = ls())
+```
+
 #Importing Data
 
 ```{r}
 library(tidyverse)
 player_raw_data <- read_csv("players.csv")
 plays_raw_data <- read_csv("plays.csv")
+games_raw_data <- read_csv("games.csv")
 tracking1_raw <- read_csv("tracking_week_1.csv")
 tracking2_raw <- read_csv("tracking_week_2.csv")
 tracking3_raw <- read_csv("tracking_week_3.csv")
@@ -71,3 +77,12 @@ lm.yardsByPlayClock <- lm(yardsGained ~ pff_passCoverage,plays_raw_data)
 
 summary(lm.yardsByPlayClock)
 ```
+
+
+#Nathan's Work
+
+
+
+
+
+
