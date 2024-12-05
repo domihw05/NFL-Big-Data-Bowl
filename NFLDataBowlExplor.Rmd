@@ -90,12 +90,11 @@ plays_clean <- plays_raw_data %>%
     !is.na(yardsGained),           
     !is.na(down),                 
     !is.na(yardsToGo),            
-    !is.na(offenseFormation),     
     !is.na(receiverAlignment)   
   )
 
 # Linear regression with pre-snap variables
-model_pre_snap <- lm(yardsGained ~ offenseFormation + yardlineSide + down + yardsToGo, data = plays_clean)
+model_pre_snap <- lm(yardsGained ~ yardlineSide + down + yardsToGo, data = plays_clean)
 
 # Summary of the model
 summary(model_pre_snap)
