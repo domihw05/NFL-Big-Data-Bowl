@@ -182,3 +182,36 @@ summary(anova_alignment)
 tukey_alignment <- TukeyHSD(anova_alignment)
 tukey_alignment
 ```
+Defense formation
+```{r}
+# Filter out rows with missing values in pass coverage or man/zone
+plays_clean <- plays_clean %>%
+  filter(!is.na(pff_passCoverage), !is.na(pff_manZone), !is.na(yardsGained))
+
+# Linear regression with pass coverage
+model_pass_coverage <- lm(yardsGained ~ pff_passCoverage, data = plays_clean)
+summary(model_pass_coverage)
+
+# Linear regression with man/zone coverage
+model_manzone <- lm(yardsGained ~ pff_manZone, data = plays_clean)
+summary(model_manzone)
+
+# Linear regression with interaction terms
+model_interaction <- lm(yardsGained ~ pff_passCoverage * pff_manZone, data = plays_clean)
+summary(model_interaction)
+
+anova_pass <- aov(yardsGained ~ pff_passCoverage, data = plays_clean)
+summary(anova_pass)
+
+anova_manzone <- aov(yardsGained ~ pff_manZone, data = plays_clean)
+summary(anova_manzone)
+
+# Tukey's HSD for pass coverage
+tukey_pass <- TukeyHSD(anova_pass)
+tukey_pass
+
+# Tukey's HSD for man/zone coverage
+tukey_manzone <- TukeyHSD(anova_manzone)
+tukey_manzone
+
+```
