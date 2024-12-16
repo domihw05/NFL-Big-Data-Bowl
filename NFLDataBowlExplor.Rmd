@@ -23,13 +23,13 @@ plays_raw_data <- read_csv("plays.csv")
 games_raw_data <- read_csv("games.csv")
 
 tracking1_raw <- read_csv("tracking_week_1.csv")
-#tracking2_raw <- read_csv("tracking_week_2.csv")
-#tracking3_raw <- read_csv("tracking_week_3.csv")
-#tracking4_raw <- read_csv("tracking_week_4.csv")
-#tracking5_raw <- read_csv("tracking_week_5.csv")
-#tracking7_raw <- read_csv("tracking_week_7.csv")
-#tracking8_raw <- read_csv("tracking_week_8.csv")
-#tracking9_raw <- read_csv("tracking_week_9.csv")
+tracking2_raw <- read_csv("tracking_week_2.csv")
+tracking3_raw <- read_csv("tracking_week_3.csv")
+tracking4_raw <- read_csv("tracking_week_4.csv")
+tracking5_raw <- read_csv("tracking_week_5.csv")
+tracking7_raw <- read_csv("tracking_week_7.csv")
+tracking8_raw <- read_csv("tracking_week_8.csv")
+tracking9_raw <- read_csv("tracking_week_9.csv")
 ```
 
 #Exploring the Data
@@ -217,3 +217,4 @@ tukey_manzone
 tukey_pass <- TukeyHSD(anova_pass)
 tukey_pass
 ```
+
