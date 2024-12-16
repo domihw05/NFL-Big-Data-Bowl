@@ -21,15 +21,23 @@ library(tidyverse)
 player_raw_data <- read_csv("players.csv")
 plays_raw_data <- read_csv("plays.csv")
 games_raw_data <- read_csv("games.csv")
-
-tracking1_raw <- read_csv("tracking_week_1.csv")
-tracking2_raw <- read_csv("tracking_week_2.csv")
-tracking3_raw <- read_csv("tracking_week_3.csv")
-tracking4_raw <- read_csv("tracking_week_4.csv")
-tracking5_raw <- read_csv("tracking_week_5.csv")
-tracking7_raw <- read_csv("tracking_week_7.csv")
-tracking8_raw <- read_csv("tracking_week_8.csv")
-tracking9_raw <- read_csv("tracking_week_9.csv")
+#putting all the tracking data into one file
+tracking <- list.files(pattern = "week") |> 
+  map(read_csv) |> 
+  list_rbind()
+```
+```{r}
+tracking <- tracking |>
+  mutate(
+    # make all plays go from left to right
+    x = ifelse(playDirection == "left", 120 - x, x),
+    y = ifelse(playDirection == "left", 160 / 3 - y, y),
+    # flip player direction and orientation
+    dir = ifelse(playDirection == "left", dir + 180, dir),
+    dir = ifelse(dir > 360, dir - 360, dir),
+    o = ifelse(playDirection == "left", o + 180, o),
+    o = ifelse(o > 360, o - 360, o)
+  )
 ```
 
 #Exploring the Data
