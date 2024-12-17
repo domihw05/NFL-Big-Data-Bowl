@@ -332,3 +332,70 @@ t_test_result <- t.test(yardsGained ~ receiver_motion, data = plays_clean)
 print(t_test_result)
 ```
 
+```{r}
+library(dplyr)
+
+# Detect pre-snap movement using both X and Y values
+receiver_movement <- tracking_receivers %>%
+  filter(frameType == "BEFORE_SNAP") %>%
+  group_by(gameId, playId, nflId) %>%
+  mutate(
+    movement = sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2)
+  ) %>%
+  summarize(
+    total_movement = sum(movement, na.rm = TRUE)  # Total movement across frames
+  ) %>%
+  ungroup()
+
+# View summary
+summary(receiver_movement$total_movement)
+```
+```{r}
+library(ggplot2)
+
+# Histogram to explore movement distribution
+ggplot(receiver_movement, aes(x = total_movement)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "white") +
+  labs(
+    title = "Distribution of Total Pre-Snap Movement (X and Y)",
+    x = "Total Movement (yards)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+# Threshold at 95th percentile
+threshold <- quantile(receiver_movement$total_movement, 0.95, na.rm = TRUE)
+print(threshold)
+
+# Flag plays with significant receiver motion
+motion_flag_combined <- receiver_movement %>%
+  group_by(gameId, playId) %>%
+  summarize(receiver_motion = any(total_movement > threshold))  # Flag motion
+
+# Merge motion flag with play outcomes
+plays_with_motion <- plays_raw_data %>%
+  left_join(motion_flag_combined, by = c("gameId", "playId")) %>%
+  mutate(receiver_motion = ifelse(is.na(receiver_motion), FALSE, receiver_motion))
+
+# Compare outcomes with and without motion
+motion_summary_combined <- plays_with_motion %>%
+  group_by(receiver_motion) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    success_rate = mean(yardsGained >= 5, na.rm = TRUE),
+    play_count = n()
+  )
+
+print(motion_summary_combined)
+
+# Perform t-test for yards gained
+t_test_result_combined <- t.test(yardsGained ~ receiver_motion, data = plays_with_motion)
+print(t_test_result_combined)
+
+# Linear regression with interaction term
+model_combined <- lm(yardsGained ~ receiver_motion * offenseFormation, data = plays_with_motion)
+
+# View model summary
+summary(model_combined)
+```
+
