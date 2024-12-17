@@ -292,4 +292,43 @@ t_test_result <- t.test(yardsGained ~ motion_detected, data = plays_clean)
 print(t_test_result)
 
 ```
+#Recievers only
+```{r}
+# Merge tracking data with player positions
+tracking_receivers <- tracking %>%
+  left_join(player_raw_data, by = "nflId") %>%   # Match player IDs to get their position
+  filter(position %in% c("WR", "TE", "RB"))  # Keep only receivers
+```
+
+```{r}
+# Detect pre-snap movement for receivers only
+motion_data_receivers <- tracking_receivers %>%
+  filter(frameType == "BEFORE_SNAP") %>%
+  group_by(gameId, playId, nflId) %>%
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%
+  group_by(gameId, playId) %>%
+  summarize(receiver_motion = any(max_y_diff > 1))  # Threshold: >1 yard
+```
+```{r}
+# Merge receiver motion with play outcomes
+plays_clean <- plays_raw_data %>%
+  left_join(motion_data_receivers, by = c("gameId", "playId")) %>%
+  mutate(receiver_motion = ifelse(is.na(receiver_motion), FALSE, receiver_motion))
+
+# Summarize offensive success with and without receiver motion
+motion_summary <- plays_clean %>%
+  group_by(receiver_motion) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    success_rate = mean(yardsGained >= 5, na.rm = TRUE),  # Success: 5+ yards gained
+    play_count = n()
+  )
+
+print(motion_summary)
+
+# Perform t-test
+t_test_result <- t.test(yardsGained ~ receiver_motion, data = plays_clean)
+print(t_test_result)
+```
 
