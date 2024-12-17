@@ -226,3 +226,70 @@ tukey_pass <- TukeyHSD(anova_pass)
 tukey_pass
 ```
 
+#exploring pre snap movement
+```{r}
+# Detect lateral pre-snap movement
+motion_data <- tracking %>%
+  filter(frameType == "BEFORE_SNAP") %>%  # Pre-snap frames only
+  group_by(gameId, playId, nflId) %>%
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%  # Change in Y-position
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%    # Max movement per player
+  ungroup()
+
+# Flag motion if max Y movement exceeds threshold (e.g., 1 yard)
+motion_flag <- motion_data %>%
+  group_by(gameId, playId) %>%
+  summarize(motion_detected = any(max_y_diff > 1))  # True if any player moved > 1 yard
+
+# Merge motion detection flag with play outcomes
+plays_clean <- plays_raw_data %>%
+  left_join(motion_flag, by = c("gameId", "playId")) %>%
+  mutate(motion_detected = ifelse(is.na(motion_detected), FALSE, motion_detected))
+
+# Compare yards gained with and without motion
+motion_summary <- plays_clean %>%
+  group_by(motion_detected) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    success_rate = mean(yardsGained >= 5, na.rm = TRUE),
+    play_count = n()
+  )
+
+print(motion_summary)
+
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# Calculate maximum Y-movement for each player before the snap
+movement_data <- tracking %>%
+  filter(frameType == "BEFORE_SNAP") %>%
+  group_by(gameId, playId, nflId) %>%
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%  # Change in Y position
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%
+  ungroup()
+
+# View summary statistics
+summary(movement_data$max_y_diff)
+
+```
+
+```{r}
+ggplot(movement_data, aes(x = max_y_diff)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "white") +
+  labs(
+    title = "Distribution of Pre-Snap Y-Movement",
+    x = "Max Y-Movement (yards)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+t_test_result <- t.test(yardsGained ~ motion_detected, data = plays_clean)
+print(t_test_result)
+
+```
+
