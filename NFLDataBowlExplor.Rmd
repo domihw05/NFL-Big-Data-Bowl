@@ -555,3 +555,18 @@ predicting_blitz.blogr <- glm(blitzing ~ total_movement * offenseFormation.x,
                               family = binomial(link = "logit"))
 summary(predicting_blitz.blogr)
 ```
+
+```{r}
+tracking_blitz_data <- tracking_pass_rush_clean %>%
+  left_join(plays_raw_data, by = c("gameId", "playId")) %>%
+  mutate(motion_flag = ifelse(total_movement > 3, 1, 0))  # Threshold for motion
+
+predicting_blitz <- glm(blitzing ~ total_movement + 
+                                  offensiveFormation + 
+                                  down + yardsToGo + 
+                                  motion_flag + 
+                                  d_qb,
+                        family = binomial(link = "logit"),
+                        data = tracking_blitz_data)
+summary(predicting_blitz)
+```
