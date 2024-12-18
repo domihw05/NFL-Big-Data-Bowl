@@ -17,17 +17,32 @@ rm(list = ls())
 #Importing Data
 
 ```{r}
+# Increase memory size (Windows only)
+memory.limit(size = 64000)  # Adjust as needed
+
 library(tidyverse)
 player_raw_data <- read_csv("players.csv")
 plays_raw_data <- read_csv("plays.csv")
 games_raw_data <- read_csv("games.csv")
+tracking_week_1 <- read_csv("tracking_week_1.csv")
 #putting all the tracking data into one file
-tracking <- list.files(pattern = "week") |> 
-  map(read_csv) |> 
-  list_rbind()
+#tracking <- list.files(pattern = "week") |> 
+ # map(read_csv) |> 
+  #list_rbind()
 ```
 ```{r}
-tracking <- tracking |>
+#tracking <- tracking |>
+  #mutate(
+    # make all plays go from left to right
+   # x = ifelse(playDirection == "left", 120 - x, x),
+  #  y = ifelse(playDirection == "left", 160 / 3 - y, y),
+    # flip player direction and orientation
+   # dir = ifelse(playDirection == "left", dir + 180, dir),
+   # dir = ifelse(dir > 360, dir - 360, dir),
+  #  o = ifelse(playDirection == "left", o + 180, o),
+ #   o = ifelse(o > 360, o - 360, o)
+#  )
+tracking_week_1 <- tracking_week_1 |>
   mutate(
     # make all plays go from left to right
     x = ifelse(playDirection == "left", 120 - x, x),
@@ -429,9 +444,7 @@ ggplot(penalty_plays, aes(x = as.factor(penalty_flag), y = yardsGained, fill = p
   theme_minimal()
 ```
 
-Dom's Recent Exploration is below.
-
-Pre-Snap Blitz Detection
+# Pre-Snap Blitz Detection
 	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
 	movement.
 	•	Key Questions:
@@ -452,28 +465,66 @@ we can measure whether players are rushing or not, so that we can then set
 a threshold of number of rushers, to identify if plays are blitzes or not.
 	
 ```{r}
-dom_mov_data <- tracking |>
-  filter(frameType == "AFTER_SNAP") |>
-  group_by(gameId, playId, nflId)
-
-tracking_roles <- dom_mov_data |>
+dom_mov_data <- tracking_week_1 |>
+  group_by(gameId, playId, nflId) |>
   left_join(player_raw_data, by = c("nflId"))
 
-tracking_qb <- tracking_roles |>
+tracking_qb <- dom_mov_data |>
   filter(position == "QB") |>
   select(gameId, playId, frameId, x_qb = x, y_qb = y)
 
-tracking_pass_rush <- tracking_roles |>
-  filter(position %in% c("SS","FS","DE","CB","ILB","OLB","DT")) |>
-  left_join(tracking_qb) |>
+movement_data <- dom_mov_data |>
+  filter(frameType == "BEFORE_SNAP") |>
   group_by(gameId, playId, nflId) |>
+  summarize(
+    total_movement = sum(sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2), na.rm = TRUE),
+    .groups = "drop"  # Explicitly drop grouping
+  )
+
+tracking_pass_rush <- dom_mov_data |>
+  filter(position %in% c("SS","FS","CB","ILB","OLB")) |>
+  left_join(tracking_qb, by = c("gameId","playId","frameId")) |>
+  group_by(gameId, playId, frameId) |>
   mutate(d_qb = sqrt((x - x_qb) ^ 2 + (y - y_qb) ^ 2),
          v_qb = -(d_qb - lag(d_qb)) / 0.1) |>
-  ungroup()
+  ungroup() |>
+  left_join(movement_data, by = c("gameId","playId","nflId.x" = "nflId"))
 
-# was going to proceed to come up with a boolean table value that
-# identifies whether a player is rushing the quarterback or not
-# don't know how to get arround this error:
-# Error: vector memory limit of 16.0 Gb reached, see mem.maxVSize()
+tracking_pass_rush <- tracking_pass_rush |>
+  select(gameId,playId,frameId,nflId.x,displayName.x,frameType,time,playDirection,
+         x,y,s,a,dis,o,dir,event,position,x_qb,y_qb,d_qb,v_qb,total_movement) |>
+   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType == "AFTER_SNAP",TRUE,FALSE))
+
+# Remove rows with NA values in blitzing
+tracking_pass_rush_clean <- tracking_pass_rush |>
+  filter(!is.na(blitzing))
+
+# Create models
+predicting_blitz.blogr <- glm(blitzing ~ total_movement, data = tracking_pass_rush_clean, 
+                           family = binomial(link="logit"))
+predicting_blitz.lm <- lm(blitzing~total_movement,tracking_pass_rush)
+
+predicted_probs <- predict(predicting_blitz.lm, type = "response")
+
+# Test if the data are logistic
+library(ResourceSelection)
+hoslem.test(tracking_pass_rush_clean$blitzing,predicted_probs)
+
+# Summarize both models
+summary(predicting_blitz.blogr)
+summary(predicting_blitz.lm)
+
+# Found correlation between pre-snap movement and whether or not that player blitzed
 
 ```
+
+Based on the above information, we have that it is possible that there is a 
+relationship between total pre-snap movement of a player and whether they blitz
+or not. That being said, according to the r^2 value, this relationship only
+accounts for 1.4% of the variation in whether they blitz or not. Also,
+by running the Hosmer and Lemeshow test, we found that the data are not
+reasonably logistic, meaning the resulting data from the binary logistic
+regression model is unreliable.
+
+We need to explore further to see if the linear regression model is justified
+for this exploration.
