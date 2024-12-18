@@ -400,7 +400,45 @@ summary(model_combined)
 ```
 #presnap movement and penalties
 ```{r}
+library(dplyr)
+library(stringr)
 
+# Identify pre-snap penalties in playDescription
+penalty_plays <- plays_raw_data %>%
+  mutate(
+    penalty_flag = str_detect(playDescription, regex("penalty", ignore_case = TRUE))
+  )
+
+# Filter only penalty plays
+pre_snap_penalties <- penalty_plays %>%
+  filter(penalty_flag == TRUE)
+
+# View summary of penalties
+print(nrow(pre_snap_penalties))  # Total number of penalty plays
 
 ```
+```{r}
+# Calculate total movement for each player BEFORE_SNAP
+movement_data <- tracking %>%
+  filter(frameType == "BEFORE_SNAP") %>%
+  group_by(gameId, playId, nflId) %>%
+  summarize(
+    total_movement = sum(sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2), na.rm = TRUE),
+    .groups = "drop"  # Explicitly drop grouping
+  )
 
+# Merge movement with penalty data
+penalty_movement <- movement_data %>%
+  left_join(pre_snap_penalties, by = c("gameId", "playId")) %>%
+  mutate(penalty = ifelse(!is.na(penalty_flag), "Penalty", "No Penalty"))
+
+# Compare movement between penalty and non-penalty plays
+movement_summary <- penalty_movement %>%
+  group_by(penalty) %>%
+  summarize(
+    mean_movement = mean(total_movement, na.rm = TRUE),
+    play_count = n()
+  )
+
+print(movement_summary)
+```
