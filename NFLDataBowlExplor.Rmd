@@ -398,4 +398,9 @@ model_combined <- lm(yardsGained ~ receiver_motion * offenseFormation, data = pl
 # View model summary
 summary(model_combined)
 ```
+#presnap movement and penalties
+```{r}
+
+
+```
 
