@@ -42,51 +42,6 @@ tracking <- tracking |>
 
 #Exploring the Data
 
-```{r}
-
-# Calculate average weight by college, sort in descending order, and select top 5
-info_by_college <- player_raw_data |>
-                    group_by(collegeName) |>
-                    summarize(num_players = n(),
-                              weight = mean(weight)) |>
-                    filter(num_players > 10) |>
-                    arrange(-weight) |>
-                    filter(weight > 250)
-
-print(info_by_college)
-
-ggplot(data = info_by_college,
-       aes(x = weight,y=reorder(collegeName,+weight))) + 
-       geom_bar(stat = "identity",fill ="steelblue") +
-       theme_minimal() +
-        labs(x = "Weight",
-            y = "College")
-
-```
-
-```{r}
-sorted_4th_down <- plays_raw_data |>
-                   filter(down == 4)  |>
-                   mutate(firstDown = yardsGained >= yardsToGo) |>
-                   group_by(possessionTeam) |>
-                   summarize(num_plays = n(),
-                             firstDowns = sum(firstDown,na.rm = TRUE)) |>
-                   mutate(firstDownConversionPctg = (firstDowns/num_plays)*100) |>
-                   arrange(-firstDownConversionPctg) |>
-                   mutate(firstDownConversionPctg = paste0(round(firstDownConversionPctg,2),'%')) 
-                   
-
-print(sorted_4th_down)
-```
-
-
-```{r}
-lm.yardsByPlayClock <- lm(yardsGained ~ pff_passCoverage,plays_raw_data)
-
-summary(lm.yardsByPlayClock)
-```
-
-
 #Nathan's Work
 
 ```{r}
@@ -442,7 +397,6 @@ movement_summary <- penalty_movement %>%
 
 print(movement_summary)
 ```
-
 ```{r}
 # Compare yards gained for plays with and without penalties
 penalty_outcome <- penalty_plays %>%
@@ -475,3 +429,51 @@ ggplot(penalty_plays, aes(x = as.factor(penalty_flag), y = yardsGained, fill = p
   theme_minimal()
 ```
 
+Dom's Recent Exploration is below.
+
+Pre-Snap Blitz Detection
+	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
+	movement.
+	•	Key Questions:
+	•	What pre-snap defensive alignments or movements are the best indicators of 
+	a blitz?
+	•	How does successful blitz detection affect QB performance and play outcomes?
+	•	Deliverable: A machine learning model to predict blitz likelihood and its 
+	relationship with play success.
+	
+One question we have to answer is how do we identify blitzes? The common 
+definition of a blitz is when the defense sends more than the usual amount of 
+defenders to rush the quarterback. The three types of blitzes are corner 
+blitzes, safety blitzes and linebacker blitzes. These types simply identify 
+what positions are sent to blitz.
+
+Below, I'm attempting to trim the tracking data, and then add columns so that
+we can measure whether players are rushing or not, so that we can then set
+a threshold of number of rushers, to identify if plays are blitzes or not.
+	
+```{r}
+dom_mov_data <- tracking |>
+  filter(frameType == "AFTER_SNAP") |>
+  group_by(gameId, playId, nflId)
+
+tracking_roles <- dom_mov_data |>
+  left_join(player_raw_data, by = c("nflId"))
+
+tracking_qb <- tracking_roles |>
+  filter(position == "QB") |>
+  select(gameId, playId, frameId, x_qb = x, y_qb = y)
+
+tracking_pass_rush <- tracking_roles |>
+  filter(position %in% c("SS","FS","DE","CB","ILB","OLB","DT")) |>
+  left_join(tracking_qb) |>
+  group_by(gameId, playId, nflId) |>
+  mutate(d_qb = sqrt((x - x_qb) ^ 2 + (y - y_qb) ^ 2),
+         v_qb = -(d_qb - lag(d_qb)) / 0.1) |>
+  ungroup()
+
+# was going to proceed to come up with a boolean table value that
+# identifies whether a player is rushing the quarterback or not
+# don't know how to get arround this error:
+# Error: vector memory limit of 16.0 Gb reached, see mem.maxVSize()
+
+```
