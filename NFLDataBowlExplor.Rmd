@@ -397,6 +397,37 @@ movement_summary <- penalty_movement %>%
 
 print(movement_summary)
 ```
+```{r}
+# Compare yards gained for plays with and without penalties
+penalty_outcome <- penalty_plays %>%
+  mutate(penalty_flag = ifelse(penalty_flag, "Penalty", "No Penalty")) %>%
+  group_by(penalty_flag) %>%
+  summarize(
+    mean_yards = mean(yardsGained, na.rm = TRUE),
+    success_rate = mean(yardsGained >= 5, na.rm = TRUE),  # Success: gain >= 5 yards
+    play_count = n()
+  )
+
+print(penalty_outcome)
+```
+
+```{r}
+t_test_result <- t.test(yardsGained ~ penalty_flag, data = penalty_plays)
+print(t_test_result)
+```
+
+```{r}
+
+library(ggplot2)
+ggplot(penalty_plays, aes(x = as.factor(penalty_flag), y = yardsGained, fill = penalty_flag)) +
+  geom_boxplot() +
+  labs(
+    title = "Effect of Pre-Snap Penalties on Yards Gained",
+    x = "Penalty Flag (TRUE/FALSE)",
+    y = "Yards Gained"
+  ) +
+  theme_minimal()
+```
 
 Dom's Recent Exploration is below.
 
