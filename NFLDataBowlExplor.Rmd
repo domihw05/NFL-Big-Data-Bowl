@@ -63,11 +63,11 @@ summary(model_pre_snap)
 ```
 ```{r}
 #cleaning for offensiveFormation for ANOVA test 
-plays_clean <- plays_clean %>%
+plays_clean <- plays_clean |>
   filter(offenseFormation != "EMPTY")
 
 # Boxplot after cleaning
-plays_clean %>%
+plays_clean |>
   ggplot(aes(x = offenseFormation, y = yardsGained)) +
   geom_boxplot() +
   labs(
@@ -86,18 +86,18 @@ TukeyHSD(anova_model) #trying to see which ones difer the most
 
 
 # Calculate mean yards gained by formation
-formation_means <- plays_clean %>%
-  group_by(offenseFormation) %>%
+formation_means <- plays_clean |>
+  group_by(offenseFormation) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     count = n()
-  ) %>%
+  ) |>
   arrange(desc(mean_yards)) 
 
 formation_means
 
 # Bar plot of mean yards gained by formation
-formation_means %>%
+formation_means |>
   ggplot(aes(x = reorder(offenseFormation, mean_yards), y = mean_yards)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   labs(
@@ -111,19 +111,19 @@ formation_means %>%
 ```
 ```{r}
 # Group by receiver alignment and calculate mean yards gained
-alignment_stats <- plays_clean %>%
-  group_by(receiverAlignment) %>%
+alignment_stats <- plays_clean |>
+  group_by(receiverAlignment) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     count = n()
-  ) %>%
+  ) |>
   arrange(desc(mean_yards))
 
 # View the summary stats
 alignment_stats
 
 # Boxplot for yards gained by receiver alignment
-plays_clean %>%
+plays_clean |>
   ggplot(aes(x = receiverAlignment, y = yardsGained)) +
   geom_boxplot() +
   labs(
@@ -147,7 +147,7 @@ tukey_alignment
 Defense formation
 ```{r}
 # Filter out rows with missing values in pass coverage or man/zone
-plays_clean <- plays_clean %>%
+plays_clean <- plays_clean |>
   filter(!is.na(pff_passCoverage), !is.na(pff_manZone), !is.na(yardsGained))
 
 # Linear regression with pass coverage
@@ -184,26 +184,26 @@ tukey_pass
 #exploring pre snap movement
 ```{r}
 # Detect lateral pre-snap movement
-motion_data <- tracking %>%
-  filter(frameType == "BEFORE_SNAP") %>%  # Pre-snap frames only
-  group_by(gameId, playId, nflId) %>%
-  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%  # Change in Y-position
-  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%    # Max movement per player
+motion_data <- tracking |>
+  filter(frameType == "BEFORE_SNAP") |>  # Pre-snap frames only
+  group_by(gameId, playId, nflId) |>
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) |>  # Change in Y-position
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) |>    # Max movement per player
   ungroup()
 
 # Flag motion if max Y movement exceeds threshold (e.g., 1 yard)
-motion_flag <- motion_data %>%
-  group_by(gameId, playId) %>%
+motion_flag <- motion_data |>
+  group_by(gameId, playId) |>
   summarize(motion_detected = any(max_y_diff > 1))  # True if any player moved > 1 yard
 
 # Merge motion detection flag with play outcomes
-plays_clean <- plays_raw_data %>%
-  left_join(motion_flag, by = c("gameId", "playId")) %>%
+plays_clean <- plays_raw_data |>
+  left_join(motion_flag, by = c("gameId", "playId")) |>
   mutate(motion_detected = ifelse(is.na(motion_detected), FALSE, motion_detected))
 
 # Compare yards gained with and without motion
-motion_summary <- plays_clean %>%
-  group_by(motion_detected) %>%
+motion_summary <- plays_clean |>
+  group_by(motion_detected) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     success_rate = mean(yardsGained >= 5, na.rm = TRUE),
@@ -218,11 +218,11 @@ library(dplyr)
 library(ggplot2)
 
 # Calculate maximum Y-movement for each player before the snap
-movement_data <- tracking %>%
-  filter(frameType == "BEFORE_SNAP") %>%
-  group_by(gameId, playId, nflId) %>%
-  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%  # Change in Y position
-  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%
+movement_data <- tracking |>
+  filter(frameType == "BEFORE_SNAP") |>
+  group_by(gameId, playId, nflId) |>
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) |>  # Change in Y position
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) |>
   ungroup()
 
 # View summary statistics
@@ -250,30 +250,30 @@ print(t_test_result)
 #Recievers only
 ```{r}
 # Merge tracking data with player positions
-tracking_receivers <- tracking %>%
-  left_join(player_raw_data, by = "nflId") %>%   # Match player IDs to get their position
+tracking_receivers <- tracking |>
+  left_join(player_raw_data, by = "nflId") |>   # Match player IDs to get their position
   filter(position %in% c("WR", "TE", "RB"))  # Keep only receivers
 ```
 
 ```{r}
 # Detect pre-snap movement for receivers only
-motion_data_receivers <- tracking_receivers %>%
-  filter(frameType == "BEFORE_SNAP") %>%
-  group_by(gameId, playId, nflId) %>%
-  mutate(y_diff = abs(y - lag(y, default = first(y)))) %>%
-  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) %>%
-  group_by(gameId, playId) %>%
+motion_data_receivers <- tracking_receivers |>
+  filter(frameType == "BEFORE_SNAP") |>
+  group_by(gameId, playId, nflId) |>
+  mutate(y_diff = abs(y - lag(y, default = first(y)))) |>
+  summarize(max_y_diff = max(y_diff, na.rm = TRUE)) |>
+  group_by(gameId, playId) |>
   summarize(receiver_motion = any(max_y_diff > 1))  # Threshold: >1 yard
 ```
 ```{r}
 # Merge receiver motion with play outcomes
-plays_clean <- plays_raw_data %>%
-  left_join(motion_data_receivers, by = c("gameId", "playId")) %>%
+plays_clean <- plays_raw_data |>
+  left_join(motion_data_receivers, by = c("gameId", "playId")) |>
   mutate(receiver_motion = ifelse(is.na(receiver_motion), FALSE, receiver_motion))
 
 # Summarize offensive success with and without receiver motion
-motion_summary <- plays_clean %>%
-  group_by(receiver_motion) %>%
+motion_summary <- plays_clean |>
+  group_by(receiver_motion) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     success_rate = mean(yardsGained >= 5, na.rm = TRUE),  # Success: 5+ yards gained
@@ -291,15 +291,15 @@ print(t_test_result)
 library(dplyr)
 
 # Detect pre-snap movement using both X and Y values
-receiver_movement <- tracking_receivers %>%
-  filter(frameType == "BEFORE_SNAP") %>%
-  group_by(gameId, playId, nflId) %>%
+receiver_movement <- tracking_receivers |>
+  filter(frameType == "BEFORE_SNAP") |>
+  group_by(gameId, playId, nflId) |>
   mutate(
     movement = sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2)
-  ) %>%
+  ) |>
   summarize(
     total_movement = sum(movement, na.rm = TRUE)  # Total movement across frames
-  ) %>%
+  ) |>
   ungroup()
 
 # View summary
@@ -323,18 +323,18 @@ threshold <- quantile(receiver_movement$total_movement, 0.95, na.rm = TRUE)
 print(threshold)
 
 # Flag plays with significant receiver motion
-motion_flag_combined <- receiver_movement %>%
-  group_by(gameId, playId) %>%
+motion_flag_combined <- receiver_movement |>
+  group_by(gameId, playId) |>
   summarize(receiver_motion = any(total_movement > threshold))  # Flag motion
 
 # Merge motion flag with play outcomes
-plays_with_motion <- plays_raw_data %>%
-  left_join(motion_flag_combined, by = c("gameId", "playId")) %>%
+plays_with_motion <- plays_raw_data |>
+  left_join(motion_flag_combined, by = c("gameId", "playId")) |>
   mutate(receiver_motion = ifelse(is.na(receiver_motion), FALSE, receiver_motion))
 
 # Compare outcomes with and without motion
-motion_summary_combined <- plays_with_motion %>%
-  group_by(receiver_motion) %>%
+motion_summary_combined <- plays_with_motion |>
+  group_by(receiver_motion) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     success_rate = mean(yardsGained >= 5, na.rm = TRUE),
@@ -359,13 +359,13 @@ library(dplyr)
 library(stringr)
 
 # Identify pre-snap penalties in playDescription
-penalty_plays <- plays_raw_data %>%
+penalty_plays <- plays_raw_data |>
   mutate(
     penalty_flag = str_detect(playDescription, regex("penalty", ignore_case = TRUE))
   )
 
 # Filter only penalty plays
-pre_snap_penalties <- penalty_plays %>%
+pre_snap_penalties <- penalty_plays |>
   filter(penalty_flag == TRUE)
 
 # View summary of penalties
@@ -374,22 +374,22 @@ print(nrow(pre_snap_penalties))  # Total number of penalty plays
 ```
 ```{r}
 # Calculate total movement for each player BEFORE_SNAP
-movement_data <- tracking %>%
-  filter(frameType == "BEFORE_SNAP") %>%
-  group_by(gameId, playId, nflId) %>%
+movement_data <- tracking |>
+  filter(frameType == "BEFORE_SNAP") |>
+  group_by(gameId, playId, nflId) |>
   summarize(
     total_movement = sum(sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2), na.rm = TRUE),
     .groups = "drop"  # Explicitly drop grouping
   )
 
 # Merge movement with penalty data
-penalty_movement <- movement_data %>%
-  left_join(pre_snap_penalties, by = c("gameId", "playId")) %>%
+penalty_movement <- movement_data |>
+  left_join(pre_snap_penalties, by = c("gameId", "playId")) |>
   mutate(penalty = ifelse(!is.na(penalty_flag), "Penalty", "No Penalty"))
 
 # Compare movement between penalty and non-penalty plays
-movement_summary <- penalty_movement %>%
-  group_by(penalty) %>%
+movement_summary <- penalty_movement |>
+  group_by(penalty) |>
   summarize(
     mean_movement = mean(total_movement, na.rm = TRUE),
     play_count = n()
@@ -399,9 +399,9 @@ print(movement_summary)
 ```
 ```{r}
 # Compare yards gained for plays with and without penalties
-penalty_outcome <- penalty_plays %>%
-  mutate(penalty_flag = ifelse(penalty_flag, "Penalty", "No Penalty")) %>%
-  group_by(penalty_flag) %>%
+penalty_outcome <- penalty_plays |>
+  mutate(penalty_flag = ifelse(penalty_flag, "Penalty", "No Penalty")) |>
+  group_by(penalty_flag) |>
   summarize(
     mean_yards = mean(yardsGained, na.rm = TRUE),
     success_rate = mean(yardsGained >= 5, na.rm = TRUE),  # Success: gain >= 5 yards
