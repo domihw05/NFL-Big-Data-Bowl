@@ -528,3 +528,30 @@ regression model is unreliable.
 
 We need to explore further to see if the linear regression model is justified
 for this exploration.
+
+#Nathan's work for blitz detection
+
+```{r}
+# Merge offensive formation data
+tracking_pass_rush_clean <- tracking_pass_rush_clean %>%
+  left_join(plays_raw_data %>% select(gameId, playId, offenseFormation), 
+            by = c("gameId", "playId"))
+
+# Check the updated data
+head(tracking_pass_rush_clean)
+
+predicting_blitz.blogr <- glm(blitzing ~ total_movement + offenseFormation.x, 
+                              data = tracking_pass_rush_clean, 
+                              family = binomial(link = "logit"))
+
+summary(predicting_blitz.blogr)
+
+
+```
+```{r}
+
+predicting_blitz.blogr <- glm(blitzing ~ total_movement * offenseFormation.x, 
+                              data = tracking_pass_rush_clean,
+                              family = binomial(link = "logit"))
+summary(predicting_blitz.blogr)
+```
