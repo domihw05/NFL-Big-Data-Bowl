@@ -493,80 +493,65 @@ tracking_pass_rush <- dom_mov_data |>
 tracking_pass_rush <- tracking_pass_rush |>
   select(gameId,playId,frameId,nflId.x,displayName.x,frameType,time,playDirection,
          x,y,s,a,dis,o,dir,event,position,x_qb,y_qb,d_qb,v_qb,total_movement) |>
-   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType == "AFTER_SNAP",TRUE,FALSE))
+   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType ==      "AFTER_SNAP",TRUE,FALSE))
 
 # Remove rows with NA values in blitzing
 tracking_pass_rush_clean <- tracking_pass_rush |>
-  filter(!is.na(blitzing))
-
-# Create models
-predicting_blitz.blogr <- glm(blitzing ~ total_movement, data = tracking_pass_rush_clean, 
-                           family = binomial(link="logit"))
-predicting_blitz.lm <- lm(blitzing~total_movement,tracking_pass_rush)
-
-predicted_probs <- predict(predicting_blitz.lm, type = "response")
-
-# Test if the data are logistic
-library(ResourceSelection)
-hoslem.test(tracking_pass_rush_clean$blitzing,predicted_probs)
-
-# Summarize both models
-summary(predicting_blitz.blogr)
-summary(predicting_blitz.lm)
-
-# Found correlation between pre-snap movement and whether or not that player blitzed
-
+  left_join(plays_raw_data |> select(gameId, playId, offenseFormation, playClockAtSnap, pff_passCoverage,down,yardsToGo), by = c("gameId", "playId")) |>
+  mutate(motion_flag = ifelse(total_movement > 3, 1, 0)) |>
+  filter(
+    !is.na(blitzing),
+    !is.na(total_movement),
+    !is.na(offenseFormation),
+    !is.na(playClockAtSnap)
+  )
 ```
 
-Based on the above information, we have that it is possible that there is a 
-relationship between total pre-snap movement of a player and whether they blitz
-or not. That being said, according to the r^2 value, this relationship only
-accounts for 1.4% of the variation in whether they blitz or not. Also,
-by running the Hosmer and Lemeshow test, we found that the data are not
-reasonably logistic, meaning the resulting data from the binary logistic
-regression model is unreliable.
-
-We need to explore further to see if the linear regression model is justified
-for this exploration.
-
-#Nathan's work for blitz detection
+Now that we've filtered the data accordingly, let's create the models.
 
 ```{r}
-# Merge offensive formation data
-tracking_pass_rush_clean <- tracking_pass_rush_clean %>%
-  left_join(plays_raw_data %>% select(gameId, playId, offenseFormation), 
-            by = c("gameId", "playId"))
-
-# Check the updated data
+# Check updated data
 head(tracking_pass_rush_clean)
 
-predicting_blitz.blogr <- glm(blitzing ~ total_movement + offenseFormation.x, 
+# Create model
+predicting_blitz.blogr <- glm(blitzing ~ total_movement + offenseFormation + playClockAtSnap, 
                               data = tracking_pass_rush_clean, 
                               family = binomial(link = "logit"))
 
-summary(predicting_blitz.blogr)
-
-
-```
-```{r}
-
-predicting_blitz.blogr <- glm(blitzing ~ total_movement * offenseFormation.x, 
-                              data = tracking_pass_rush_clean,
-                              family = binomial(link = "logit"))
-summary(predicting_blitz.blogr)
-```
-
-```{r}
-tracking_blitz_data <- tracking_pass_rush_clean %>%
-  left_join(plays_raw_data, by = c("gameId", "playId")) %>%
-  mutate(motion_flag = ifelse(total_movement > 3, 1, 0))  # Threshold for motion
+predicted_probs <- predict(predicting_blitz.blogr, type = "response")
 
 predicting_blitz <- glm(blitzing ~ total_movement + 
-                                  offensiveFormation + 
+                                  offenseFormation + 
                                   down + yardsToGo + 
                                   motion_flag + 
                                   d_qb,
                         family = binomial(link = "logit"),
-                        data = tracking_blitz_data)
-summary(predicting_blitz)
+                        data = tracking_pass_rush_clean)
+
+# Test if the data are logistic
+library(ResourceSelection)
+hoslem.test(tracking_pass_rush_clean$blitzing,predicted_probs)
 ```
+
+Since the Hosmer and Lemeshow goodness of fit test yielded a p-value of
+$2.2 * 10^{-6}$. This means that we reject the null hypothesis that the data are 
+reasonably logistic. This means that the logistic model is likely not a good
+fit for the data.
+
+That being said, let's proceed anyway to see what we can find.
+
+```{r}
+# Summarize both models
+summary(predicting_blitz.blogr)
+summary(predicting_blitz)
+# Found correlation between pre-snap movement and whether or not that player blitzed
+```
+
+Based on the above information, we have that it is possible that there is a 
+relationship between total pre-snap movement of a player and whether they blitz
+or not. Also, by running the Hosmer and Lemeshow test, we found that the data 
+are not reasonably logistic, meaning the resulting data from the binary 
+logistic regression model is unreliable.
+
+#Nathan's work for blitz detection
+
