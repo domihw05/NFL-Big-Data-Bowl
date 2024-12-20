@@ -356,7 +356,7 @@ tracking_pass_rush <- dom_mov_data |>
 tracking_pass_rush <- tracking_pass_rush |>
   select(gameId,playId,frameId,nflId.x,displayName.x,frameType,time,playDirection,
          x,y,s,a,dis,o,dir,event,position,x_qb,y_qb,d_qb,v_qb,total_movement) |>
-   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType ==      "AFTER_SNAP",TRUE,FALSE))
+   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType == "AFTER_SNAP",TRUE,FALSE))
 
 # Remove rows with NA values in blitzing
 tracking_pass_rush_clean <- tracking_pass_rush |>
@@ -416,5 +416,60 @@ or not. Also, by running the Hosmer and Lemeshow test, we found that the data
 are not reasonably logistic, meaning the resulting data from the binary 
 logistic regression model is unreliable.
 
-#Nathan's work for blitz detection
+Here we try other simple machine learning classification models such as Linear 
+and Quadratic Discriminant Analysis (LDA & QDA) and classification trees with the
+same predictor variables as before.
 
+#LDA and QDA:
+```{r}
+library(MASS)
+
+# Linear Discriminant Analysis
+blitz_lda <- lda(blitzing ~ total_movement + offenseFormation + down + yardsToGo,
+                 data = tracking_pass_rush_clean)
+print(blitz_lda)
+
+# Quadratic Discriminant Analysis
+blitz_qda <- qda(blitzing ~ total_movement + offenseFormation + down + yardsToGo,
+                 data = tracking_pass_rush_clean)
+print(blitz_qda)
+
+# Predictions
+lda_pred <- predict(blitz_lda)$class
+qda_pred <- predict(blitz_qda)$class
+
+# Confusion matrix
+table(Predicted = lda_pred, Actual = tracking_pass_rush_clean$blitzing)
+table(Predicted = qda_pred, Actual = tracking_pass_rush_clean$blitzing)
+```
+
+From the two discriminant analysis models above we can see that the players who 
+blitz (TRUE) have lower total movement (6.40 vs. 8.65 for FALSE). However, similar
+to the logistic regression model, it identifies some patterns but the coefficients
+and group mean indicate that these differences are subtle.
+
+#Classification Tree:
+```{r}
+library(rpart)
+library(rpart.plot)
+
+# Fit a classification tree
+blitz_tree <- rpart(blitzing ~ total_movement + offenseFormation + down + yardsToGo, 
+                    data = tracking_pass_rush_clean, method = "class")
+
+# Plot the tree
+rpart.plot(blitz_tree, main = "Classification Tree for Blitz Prediction", type = 2)
+
+# Predictions
+tree_pred <- predict(blitz_tree, type = "class")
+
+# Confusion matrix
+table(Predicted = tree_pred, Actual = tracking_pass_rush_clean$blitzing)
+
+```
+
+From the tree graphic, we can see a single node predicting FALSE which means that
+the model predicts all observations as FALSE (no blitzes detected). This makes sense
+because the probability of the blitzing is only 0.09% in the actual data indicating
+that classification tree would not be the best at splitting the data well enough
+to predict. 
