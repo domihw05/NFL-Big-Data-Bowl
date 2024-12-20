@@ -55,148 +55,9 @@ tracking_week_1 <- tracking_week_1 |>
   )
 ```
 
-#Exploring the Data
 
-#Nathan's Work
+#Pre-Snap Movement to predict success rate/yards gained:
 
-```{r}
-#Testing quantitative variables: down, yardsToGo, offensiveFormation, recieverAlignment 
-# Drop rows with missing values in key columns
-plays_clean <- plays_raw_data |>
-  filter(
-    !is.na(yardsGained),           
-    !is.na(down),                 
-    !is.na(yardsToGo),            
-    !is.na(receiverAlignment)   
-  )
-
-# Linear regression with pre-snap variables
-model_pre_snap <- lm(yardsGained ~ yardlineSide + down + yardsToGo, data = plays_clean)
-
-# Summary of the model
-summary(model_pre_snap)
-```
-```{r}
-#cleaning for offensiveFormation for ANOVA test 
-plays_clean <- plays_clean |>
-  filter(offenseFormation != "EMPTY")
-
-# Boxplot after cleaning
-plays_clean |>
-  ggplot(aes(x = offenseFormation, y = yardsGained)) +
-  geom_boxplot() +
-  labs(
-    title = "Distribution of Yards Gained by Offensive Formation (Excluding EMPTY)",
-    x = "Offensive Formation",
-    y = "Yards Gained"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# ANOVA after cleaning
-anova_model <- aov(yardsGained ~ offenseFormation, data = plays_clean)
-summary(anova_model)
-
-TukeyHSD(anova_model) #trying to see which ones difer the most
-
-
-# Calculate mean yards gained by formation
-formation_means <- plays_clean |>
-  group_by(offenseFormation) |>
-  summarize(
-    mean_yards = mean(yardsGained, na.rm = TRUE),
-    count = n()
-  ) |>
-  arrange(desc(mean_yards)) 
-
-formation_means
-
-# Bar plot of mean yards gained by formation
-formation_means |>
-  ggplot(aes(x = reorder(offenseFormation, mean_yards), y = mean_yards)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
-  labs(
-    title = "Mean Yards Gained by Offensive Formation",
-    x = "Offensive Formation",
-    y = "Mean Yards Gained"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-```{r}
-# Group by receiver alignment and calculate mean yards gained
-alignment_stats <- plays_clean |>
-  group_by(receiverAlignment) |>
-  summarize(
-    mean_yards = mean(yardsGained, na.rm = TRUE),
-    count = n()
-  ) |>
-  arrange(desc(mean_yards))
-
-# View the summary stats
-alignment_stats
-
-# Boxplot for yards gained by receiver alignment
-plays_clean |>
-  ggplot(aes(x = receiverAlignment, y = yardsGained)) +
-  geom_boxplot() +
-  labs(
-    title = "Impact of Receiver Alignment on Yards Gained",
-    x = "Receiver Alignment",
-    y = "Yards Gained"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# ANOVA test for receiver alignment
-anova_alignment <- aov(yardsGained ~ receiverAlignment, data = plays_clean)
-summary(anova_alignment)
-
-
-```
-```{r}
-tukey_alignment <- TukeyHSD(anova_alignment)
-tukey_alignment
-```
-Defense formation
-```{r}
-# Filter out rows with missing values in pass coverage or man/zone
-plays_clean <- plays_clean |>
-  filter(!is.na(pff_passCoverage), !is.na(pff_manZone), !is.na(yardsGained))
-
-# Linear regression with pass coverage
-model_pass_coverage <- lm(yardsGained ~ pff_passCoverage, data = plays_clean)
-summary(model_pass_coverage)
-
-# Linear regression with man/zone coverage
-model_manzone <- lm(yardsGained ~ pff_manZone, data = plays_clean)
-summary(model_manzone)
-
-# Linear regression with interaction terms
-model_interaction <- lm(yardsGained ~ pff_passCoverage * pff_manZone, data = plays_clean)
-summary(model_interaction)
-
-```
-```{r}
-#trying to see which one(s) are different 
-anova_pass <- aov(yardsGained ~ pff_passCoverage, data = plays_clean)
-summary(anova_pass)
-
-anova_manzone <- aov(yardsGained ~ pff_manZone, data = plays_clean)
-summary(anova_manzone)
-
-# Tukey's HSD for man/zone coverage
-tukey_manzone <- TukeyHSD(anova_manzone)
-tukey_manzone
-```
-```{r}
-# Tukey's HSD for pass coverage
-tukey_pass <- TukeyHSD(anova_pass)
-tukey_pass
-```
-
-#exploring pre snap movement
 ```{r}
 # Detect lateral pre-snap movement
 motion_data <- tracking |>
@@ -368,7 +229,9 @@ model_combined <- lm(yardsGained ~ receiver_motion * offenseFormation, data = pl
 # View model summary
 summary(model_combined)
 ```
-#presnap movement and penalties
+
+
+#Pre-snap movement to predict penalties:
 ```{r}
 library(dplyr)
 library(stringr)
