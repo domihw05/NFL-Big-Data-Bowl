@@ -116,6 +116,8 @@ tracking_pass_rush_clean <- tracking_pass_rush |>
     !is.na(offenseFormation),
     !is.na(playClockAtSnap)
   )
+# download tracking_pass_rush_clean csv
+write.csv(tracking_pass_rush_clean, "tracking_pass_rush_clean.csv")
 ```
 
 Now that we've filtered the data accordingly, let's create the models.
