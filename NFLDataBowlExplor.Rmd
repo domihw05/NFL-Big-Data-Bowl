@@ -24,26 +24,16 @@ library(tidyverse)
 player_raw_data <- read_csv("players.csv")
 plays_raw_data <- read_csv("plays.csv")
 games_raw_data <- read_csv("games.csv")
-tracking_week_1 <- read_csv("tracking_week_1.csv")
-#putting all the tracking data into one file
-#tracking <- list.files(pattern = "week") |> 
- # map(read_csv) |> 
-  #list_rbind()
+# List all files matching the pattern "week" (e.g., "tracking_week_1.csv")
+files <- list.files(pattern = "week", full.names = TRUE)
+tracking_list <- list()
+
 ```
 ```{r}
-#tracking <- tracking |>
-  #mutate(
-    # make all plays go from left to right
-   # x = ifelse(playDirection == "left", 120 - x, x),
-  #  y = ifelse(playDirection == "left", 160 / 3 - y, y),
-    # flip player direction and orientation
-   # dir = ifelse(playDirection == "left", dir + 180, dir),
-   # dir = ifelse(dir > 360, dir - 360, dir),
-  #  o = ifelse(playDirection == "left", o + 180, o),
- #   o = ifelse(o > 360, o - 360, o)
-#  )
-tracking_week_1 <- tracking_week_1 |>
-  mutate(
+for (file in files) {
+  tracking <- read_csv(file)
+  tracking <- tracking |>
+    mutate(
     # make all plays go from left to right
     x = ifelse(playDirection == "left", 120 - x, x),
     y = ifelse(playDirection == "left", 160 / 3 - y, y),
@@ -52,8 +42,29 @@ tracking_week_1 <- tracking_week_1 |>
     dir = ifelse(dir > 360, dir - 360, dir),
     o = ifelse(playDirection == "left", o + 180, o),
     o = ifelse(o > 360, o - 360, o)
-  )
+    )
+  tracking_list[[file]] <- tracking
+}
 ```
+
+# Play Clock at Snap Exploration
+  •	Topic: Predict play outcomes by the moment at which the ball is snapped
+  each play
+	•	Key Questions:
+	  * What pre-snap factors have an influence on when the ball is snapped?
+	  * How does the play clock at snap relate to play success?
+	•	Deliverable: Conclusion about the importance of play clock at snap and how
+	  teams should approach this piece of data
+	  
+```{r}
+plays_raw_data$passResult_enc <- as.numeric(factor(plays_raw_data$passResult)) - 1
+  
+playclock.lm <- glm(passResult_enc ~ playClockAtSnap, family = binomial(link = "logit"),
+                    data = plays_raw_data, na.action = na.omit)
+summary(playclock.lm)
+
+```
+
 
 # Pre-Snap Blitz Detection
 	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
