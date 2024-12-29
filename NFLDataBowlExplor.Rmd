@@ -66,6 +66,48 @@ summary(playclock.lm)
 ```
 
 
+This is the most interesting find in my data. I categorized the playClockAtSnap 
+into high, medium, and low. I then plotted the results of the different buckets 
+to see the results. We can see that the lower the play clock, might have a 
+higher likelihood of rushed plays and false starts. I was thinking that it could 
+be correlated with poor play outcomes due to rushed decision making 
+or how ready the defense is. On the other hand, I theorized that the higher play 
+clock could be correlated with ready offenses while also potential catching
+the defense off guard. We can see that when the playClock is less than or equal to 
+5s, the results of the play are more spread out than than when the playClock is higher
+indicating that results vary more.
+```{r}
+# Categorize playClockAtSnap into "High," "Medium," and "Low"
+plays_raw_data <- plays_raw_data %>%
+  mutate(playClockCategory = case_when(playClockAtSnap >= 15 ~ "playClock More Than 15s",               
+      playClockAtSnap >= 5 & playClockAtSnap < 15 ~ "playClock Between 5s and 15s", 
+      playClockAtSnap < 5 ~ "playClock Less Than 5s",               
+    )
+  )
+
+plays_filtered <- plays_raw_data %>%
+  filter(!is.na(playClockCategory))
+
+ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
+  geom_bar(position = "fill") +
+  labs(
+    title = "Play Outcomes by Play Clock Category",
+    x = "Play Clock Category",
+    y = "Proportion",
+    fill = "Pass Result"
+  ) +
+  theme_minimal()
+```
+And we can see here, the playClock is indeed statistically significant with a
+value of 0.0002549 < 0.05. The next step would be to find a model to potentially 
+predict results.
+```{r}
+contingency_table <- table(plays_filtered$playClockCategory, plays_filtered$passResult)
+
+chi_sq_test <- chisq.test(contingency_table)
+print(chi_sq_test)
+```
+
 # Pre-Snap Blitz Detection
 	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
 	movement.
