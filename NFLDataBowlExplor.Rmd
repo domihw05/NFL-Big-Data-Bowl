@@ -55,15 +55,6 @@ for (file in files) {
 	  * How does the play clock at snap relate to play success?
 	•	Deliverable: Conclusion about the importance of play clock at snap and how
 	  teams should approach this piece of data
-	  
-```{r}
-plays_raw_data$passResult_enc <- as.numeric(factor(plays_raw_data$passResult)) - 1
-  
-playclock.lm <- glm(passResult_enc ~ playClockAtSnap, family = binomial(link = "logit"),
-                    data = plays_raw_data, na.action = na.omit)
-summary(playclock.lm)
-
-```
 
 
 This is the most interesting find in my data. I categorized the playClockAtSnap 
@@ -86,7 +77,7 @@ plays_raw_data <- plays_raw_data %>%
   )
 
 plays_filtered <- plays_raw_data %>%
-  filter(!is.na(playClockCategory))
+  filter(!is.na(passResult))
 
 ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
   geom_bar(position = "fill") +
@@ -106,6 +97,57 @@ contingency_table <- table(plays_filtered$playClockCategory, plays_filtered$pass
 
 chi_sq_test <- chisq.test(contingency_table)
 print(chi_sq_test)
+```
+Here for the predictive model I used a multinomial regression model because the 
+predictiction outcome is nominal with multiple categories which is perfect for this
+kind of model. The codeblock below makes the model and puts the predicted probabilities
+of the model back into the filtered plays dataframe as its own column.
+```{r}
+library(nnet)
+
+plays_filtered <- plays_filtered %>%
+  mutate(
+    playClockCategory = factor(playClockCategory),
+    passResult = factor(passResult)
+  )
+
+multinom_model <- multinom(passResult ~ playClockAtSnap, data = plays_filtered)
+
+summary(multinom_model)
+
+predictions <- predict(multinom_model, type = "probs")
+
+plays_filtered <- cbind(plays_filtered, predictions)
+```
+Here using the carat library we are able to provide summary statistics of the model. 
+We can see the confusion matrix of the predicted.
+```{r}
+predicted_classes <- predict(multinom_model, type = "class")
+
+plays_filtered$predicted_class <- predicted_classes
+
+library(caret)
+conf_matrix <- confusionMatrix(plays_filtered$predicted_class, plays_filtered$passResult)
+print(conf_matrix)
+```
+```{r}
+predicted_probs_df <- plays_filtered %>%
+  select(playClockAtSnap, passResult, C, I, IN, R, S) %>%  
+  pivot_longer(
+    cols = C:S,  
+    names_to = "Predicted_Class",
+    values_to = "Probability"
+  )
+
+ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = Predicted_Class)) +
+  geom_line(stat = "smooth", method = "loess") +
+  labs(
+    title = "Predicted Probabilities by Play Clock at Snap",
+    x = "Play Clock at Snap",
+    y = "Predicted Probability",
+    color = "Pass Result"
+  ) +
+  theme_minimal()
 ```
 
 # Pre-Snap Blitz Detection
