@@ -119,17 +119,15 @@ predictions <- predict(multinom_model, type = "probs")
 
 plays_filtered <- cbind(plays_filtered, predictions)
 ```
-Here using the carat library we are able to provide summary statistics of the model. 
-We can see the confusion matrix of the predicted.
-```{r}
-predicted_classes <- predict(multinom_model, type = "class")
 
-plays_filtered$predicted_class <- predicted_classes
-
-library(caret)
-conf_matrix <- confusionMatrix(plays_filtered$predicted_class, plays_filtered$passResult)
-print(conf_matrix)
-```
+Here I plotted the predicted probabilities to visualize the model. As we can see,
+as the play clock at snap increases, the probability of completing a pass also increases 
+from the prediction of the model. This is reinforcing what we saw before on the 
+exploratory data histogram of more completions when the play clock is higher. We 
+can also see that the probabilities of the other categories are decreasing which is 
+also parallel to what we saw before we fitted the model. Next we should discuss 
+that this predictor may not be the best predictor and model for pass results due to
+the low explanation of variance from the model.
 ```{r}
 predicted_probs_df <- plays_filtered %>%
   select(playClockAtSnap, passResult, C, I, IN, R, S) %>%  
@@ -149,6 +147,8 @@ ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = Pre
   ) +
   theme_minimal()
 ```
+
+
 
 # Pre-Snap Blitz Detection
 	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
