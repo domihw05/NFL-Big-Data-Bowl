@@ -89,6 +89,27 @@ ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
   ) +
   theme_minimal()
 ```
+
+
+We also investigated the relationship that the play block at snap might have
+with the yards gained that play. However, as we can see in the below
+visualization, there is no clear correlation between the two.
+
+```{r}
+
+
+ggplot(plays_filtered, aes(x = playClockCategory, y = yardsGained, fill = playClockCategory)) +
+  geom_boxplot() +
+  labs(
+    title = "Yards Gained by Play Clock Category",
+    x = "Play Clock Category",
+    y = "Yards Gained"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
 And we can see here, the playClock is indeed statistically significant with a
 value of 0.0002549 < 0.05. The next step would be to find a model to potentially 
 predict results.
@@ -109,7 +130,8 @@ plays_filtered <- plays_filtered %>%
   mutate(
     playClockCategory = factor(playClockCategory),
     passResult = factor(passResult)
-  )
+  ) |>
+  filter(!is.na(passResult), !is.na(playClockAtSnap))
 
 multinom_model <- multinom(passResult ~ playClockAtSnap, data = plays_filtered)
 
@@ -117,6 +139,8 @@ summary(multinom_model)
 
 predictions <- predict(multinom_model, type = "probs")
 
+nrow(plays_filtered)
+nrow(predictions)
 plays_filtered <- cbind(plays_filtered, predictions)
 ```
 
@@ -148,7 +172,29 @@ ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = Pre
   theme_minimal()
 ```
 
+#DON'T KNOW WHERE TO PUT THIS YET BUT ITS COOL
 
+Further exploration of how the play clock affects other variables yields the
+following heat map. This heat map illustrates the play success rate based on 
+the play clock and yards to go during that play. 
+
+```{r}
+heatmap_data <- plays_filtered |>
+  mutate(yardsToGoBucket = cut(yardsToGo, breaks = c(0, 5, 10, 15, 20, 30), right = FALSE)) |>
+  group_by(playClockCategory, yardsToGoBucket) |>
+  summarize(success_rate = mean(passResult == "C", na.rm = TRUE), .groups = "drop")
+
+ggplot(heatmap_data, aes(x = playClockCategory, y = yardsToGoBucket, fill = success_rate)) +
+  geom_tile() +
+  labs(
+    title = "Success Rate Heatmap",
+    x = "Play Clock Bucket",
+    y = "Yards to Go Bucket",
+    fill = "Success Rate"
+  ) +
+  theme_minimal() +
+  scale_fill_gradient(low = "red", high = "green")
+```
 
 # Pre-Snap Blitz Detection
 	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
