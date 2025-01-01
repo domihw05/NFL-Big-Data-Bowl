@@ -1,0 +1,214 @@
+---
+title: "blitz_detection_exploration"
+output: html_document
+date: "2025-01-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Click to clear environment
+rm(list = ls())
+```
+
+#Importing Data
+
+```{r}
+# Increase memory size (Windows only)
+memory.limit(size = 64000)  # Adjust as needed
+
+library(tidyverse)
+player_raw_data <- read_csv("players.csv")
+plays_raw_data <- read_csv("plays.csv")
+games_raw_data <- read_csv("games.csv")
+# List all files matching the pattern "week" (e.g., "tracking_week_1.csv")
+files <- list.files(pattern = "week", full.names = TRUE)
+tracking_list <- list()
+
+```
+```{r}
+for (file in files) {
+  tracking <- read_csv(file)
+  tracking <- tracking |>
+    mutate(
+    # make all plays go from left to right
+    x = ifelse(playDirection == "left", 120 - x, x),
+    y = ifelse(playDirection == "left", 160 / 3 - y, y),
+    # flip player direction and orientation
+    dir = ifelse(playDirection == "left", dir + 180, dir),
+    dir = ifelse(dir > 360, dir - 360, dir),
+    o = ifelse(playDirection == "left", o + 180, o),
+    o = ifelse(o > 360, o - 360, o)
+    )
+  tracking_list[[file]] <- tracking
+}
+```
+
+# Pre-Snap Blitz Detection
+	•	Topic: Predict defensive blitzes based on pre-snap player positioning and 
+	movement.
+	•	Key Questions:
+	•	What pre-snap defensive alignments or movements are the best indicators of 
+	a blitz?
+	•	How does successful blitz detection affect QB performance and play outcomes?
+	•	Deliverable: A machine learning model to predict blitz likelihood and its 
+	relationship with play success.
+	
+One question we have to answer is how do we identify blitzes? The common 
+definition of a blitz is when the defense sends more than the usual amount of 
+defenders to rush the quarterback. The three types of blitzes are corner 
+blitzes, safety blitzes and linebacker blitzes. These types simply identify 
+what positions are sent to blitz.
+
+Below, I'm attempting to trim the tracking data, and then add columns so that
+we can measure whether players are rushing or not, so that we can then set
+a threshold of number of rushers, to identify if plays are blitzes or not.
+	
+```{r}
+dom_mov_data <- tracking_week_1 |>
+  group_by(gameId, playId, nflId) |>
+  left_join(player_raw_data, by = c("nflId"))
+
+tracking_qb <- dom_mov_data |>
+  filter(position == "QB") |>
+  select(gameId, playId, frameId, x_qb = x, y_qb = y)
+
+movement_data <- dom_mov_data |>
+  filter(frameType == "BEFORE_SNAP") |>
+  group_by(gameId, playId, nflId) |>
+  summarize(
+    total_movement = sum(sqrt((x - lag(x, default = first(x)))^2 + (y - lag(y, default = first(y)))^2), na.rm = TRUE),
+    .groups = "drop"  # Explicitly drop grouping
+  )
+
+tracking_pass_rush <- dom_mov_data |>
+  filter(position %in% c("SS","FS","CB","ILB","OLB")) |>
+  left_join(tracking_qb, by = c("gameId","playId","frameId")) |>
+  group_by(gameId, playId, frameId) |>
+  mutate(d_qb = sqrt((x - x_qb) ^ 2 + (y - y_qb) ^ 2),
+         v_qb = -(d_qb - lag(d_qb)) / 0.1) |>
+  ungroup() |>
+  left_join(movement_data, by = c("gameId","playId","nflId.x" = "nflId"))
+
+tracking_pass_rush <- tracking_pass_rush |>
+  select(gameId,playId,frameId,nflId.x,displayName.x,frameType,time,playDirection,
+         x,y,s,a,dis,o,dir,event,position,x_qb,y_qb,d_qb,v_qb,total_movement) |>
+   mutate(blitzing = ifelse((dir > 180 | d_qb < 8) & v_qb > 5 & frameType == "AFTER_SNAP",TRUE,FALSE))
+
+# Remove rows with NA values in blitzing
+tracking_pass_rush_clean <- tracking_pass_rush |>
+  left_join(plays_raw_data |> select(gameId, playId, offenseFormation, playClockAtSnap, pff_passCoverage,down,yardsToGo), by = c("gameId", "playId")) |>
+  mutate(motion_flag = ifelse(total_movement > 3, 1, 0)) |>
+  filter(
+    !is.na(blitzing),
+    !is.na(total_movement),
+    !is.na(offenseFormation),
+    !is.na(playClockAtSnap)
+  )
+```
+
+Now that we've filtered the data accordingly, let's create the models.
+
+```{r}
+# Check updated data
+head(tracking_pass_rush_clean)
+
+# Create model
+predicting_blitz.blogr <- glm(blitzing ~ total_movement + offenseFormation + playClockAtSnap, 
+                              data = tracking_pass_rush_clean, 
+                              family = binomial(link = "logit"))
+
+predicted_probs <- predict(predicting_blitz.blogr, type = "response")
+
+predicting_blitz <- glm(blitzing ~ total_movement + 
+                                  offenseFormation + 
+                                  down + yardsToGo + 
+                                  motion_flag + 
+                                  d_qb,
+                        family = binomial(link = "logit"),
+                        data = tracking_pass_rush_clean)
+
+# Test if the data are logistic
+library(ResourceSelection)
+hoslem.test(tracking_pass_rush_clean$blitzing,predicted_probs)
+```
+
+Since the Hosmer and Lemeshow goodness of fit test yielded a p-value of
+$2.2 * 10^{-6}$. This means that we reject the null hypothesis that the data are 
+reasonably logistic. This means that the logistic model is likely not a good
+fit for the data.
+
+That being said, let's proceed anyway to see what we can find.
+
+```{r}
+# Summarize both models
+summary(predicting_blitz.blogr)
+summary(predicting_blitz)
+# Found correlation between pre-snap movement and whether or not that player blitzed
+```
+
+Based on the above information, we have that it is possible that there is a 
+relationship between total pre-snap movement of a player and whether they blitz
+or not. Also, by running the Hosmer and Lemeshow test, we found that the data 
+are not reasonably logistic, meaning the resulting data from the binary 
+logistic regression model is unreliable.
+
+Here we try other simple machine learning classification models such as Linear 
+and Quadratic Discriminant Analysis (LDA & QDA) and classification trees with the
+same predictor variables as before.
+
+#LDA and QDA:
+```{r}
+library(MASS)
+
+# Linear Discriminant Analysis
+blitz_lda <- lda(blitzing ~ total_movement + offenseFormation + down + yardsToGo,
+                 data = tracking_pass_rush_clean)
+print(blitz_lda)
+
+# Quadratic Discriminant Analysis
+blitz_qda <- qda(blitzing ~ total_movement + offenseFormation + down + yardsToGo,
+                 data = tracking_pass_rush_clean)
+print(blitz_qda)
+
+# Predictions
+lda_pred <- predict(blitz_lda)$class
+qda_pred <- predict(blitz_qda)$class
+
+# Confusion matrix
+table(Predicted = lda_pred, Actual = tracking_pass_rush_clean$blitzing)
+table(Predicted = qda_pred, Actual = tracking_pass_rush_clean$blitzing)
+```
+
+From the two discriminant analysis models above we can see that the players who 
+blitz (TRUE) have lower total movement (6.40 vs. 8.65 for FALSE). However, similar
+to the logistic regression model, it identifies some patterns but the coefficients
+and group mean indicate that these differences are subtle.
+
+#Classification Tree:
+```{r}
+library(rpart)
+library(rpart.plot)
+
+# Fit a classification tree
+blitz_tree <- rpart(blitzing ~ total_movement + offenseFormation + down + yardsToGo, 
+                    data = tracking_pass_rush_clean, method = "class")
+
+# Plot the tree
+rpart.plot(blitz_tree, main = "Classification Tree for Blitz Prediction", type = 2)
+
+# Predictions
+tree_pred <- predict(blitz_tree, type = "class")
+
+# Confusion matrix
+table(Predicted = tree_pred, Actual = tracking_pass_rush_clean$blitzing)
+
+```
+
+From the tree graphic, we can see a single node predicting FALSE which means that
+the model predicts all observations as FALSE (no blitzes detected). This makes sense
+because the probability of the blitzing is only 0.09% in the actual data indicating
+that classification tree would not be the best at splitting the data well enough
+to predict. 
