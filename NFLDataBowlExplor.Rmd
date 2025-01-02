@@ -1,12 +1,16 @@
 ---
-title: "Play Clock Timing and the Play Outcomes in the NFL"
+title: "The Impact of Play Clock Timing on NFL Play Outcomes"
 author: "Dominic Hoar-Weiler, Nathan Yao, and Justin Fung"
 date: "January 6, 2025"
-output: 
+output:
   pdf_document:
     toc: true
     toc_depth: 2
     number_sections: true
+  html_document:
+    toc: true
+    toc_depth: '2'
+    df_print: paged
 geometry: a4paper
 fontsize: 12pt
 linestretch: 1.5
@@ -21,7 +25,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 ```
 
-#Introduction
+# Introduction
 One moment etched in the hearts of Minnesota Vikings fans is the 2018 NFL 
 playoff game against the New Orleans Saints. With just 5 seconds left on the 
 play clock, Case Keenum launches a high, spiraling pass to Stefon Diggs, who 
@@ -32,12 +36,13 @@ highlights the critical role of the play clock. In football, the play clock
 isn’t just a countdown, it’s a pressure cooker that influences decision making, 
 timing, and ultimately, the outcome of a play.
 
-I am doing to add the research question and a brief summary right here. 
+The focus of this research is to examine how the play clock at the snap, along 
+with other variables, impacts play success. By investigating this relationship, 
+we aim to develop a predictive model that forecasts play outcomes based on the 
+timing of the snap. 
 
 
-#Importing Data
-
-```{r}
+```{r, include = FALSE}
 # Increase memory size (Windows only)
 memory.limit(size = 64000)  # Adjust as needed
 
@@ -50,7 +55,7 @@ files <- list.files(pattern = "week", full.names = TRUE)
 tracking_list <- list()
 
 ```
-```{r}
+```{r, include = FALSE}
 for (file in files) {
   tracking <- read_csv(file)
   tracking <- tracking |>
@@ -68,24 +73,109 @@ for (file in files) {
 }
 ```
 
-#Exploratory Analysis:
+# Exploratory Analysis:
 
-#Modeling
+## Background and Variables
+We analyze multiple datasets, including player statistics, play-by-play data, 
+and game metadata, sourced from the 2024–2025 NFL season as part of the Big Data
+Bowl competition. 
 
-#Prediction
+The data that was used for most of analysis came from the “plays.csv” data set, 
+A number of exploratory variables were recorded:\
+- yardsToGo:Distance needed for a first down (numeric)\
+- gameClock:Time on clock of play (MM:SS)\
+- offenseFormation:Formation used by possession team (text)\
+- playClockAtSnap:What the play clock value was at time of snap (numeric)\
+- passResult:Dropback outcome of the play (C: Complete pass, I: Incomplete pass
+, S: Quarterback sack, IN: Intercepted pass, R: Scramble, text)\
+- yardsGained:Net yards gained by the offense, including penalty yardage (numeric) \
 
-#Discussion
+and many more. 
 
-# Play Clock at Snap Exploration
-  •	Topic: Predict play outcomes by the moment at which the ball is snapped
-  each play
-	•	Key Questions:
-	  * What pre-snap factors have an influence on when the ball is snapped?
-	  * How does the play clock at snap relate to play success?
-	•	Deliverable: Conclusion about the importance of play clock at snap and how
-	  teams should approach this piece of data
+## Some EDA with Play Clock at Snap
+
+### Distributions of Important Variables
+There were a variety of possible variables that along with playClockAtSnap
+that would be important in our analysis. This section explores distributions 
+of important variables and the relationships between them. Below are the 
+different variables and their distributions that we looked at in our analysis: 
 
 
+passResult (Categorical):
+We have filtered out the NA values which indicate non-pass plays, as we are 
+only trying to explore passing plays. 
+```{r}
+plays_filtered <- plays_raw_data %>%
+  filter(!is.na(passResult))
+
+ggplot(plays_filtered, aes(x = passResult)) +
+  geom_bar(fill = "steelblue") +
+  labs(
+    title = "Distribution of Pass Results",
+    x = "Pass Result",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+yardsGained (Quantitative):
+```{r}
+ggplot(plays_filtered, aes(x = yardsGained)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "black") +
+  labs(
+    title = "Distribution of Yards Gained",
+    x = "Yards Gained",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+yardsToGo (Quantitative):
+```{r}
+ggplot(plays_filtered, aes(x = yardsToGo)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black") +
+  labs(
+    title = "Distribution of Yards to Go",
+    x = "Yards to Go",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+playClockAtSnap (Quantitative):
+For the play clock at snap, the quantitative variables was split up into 3 
+buckets: High (>=15 seconds), Medium (5–15 seconds), and Low (<5 seconds). These 
+thresholds were chosen to reflect typical game scenarios: early snaps, moderate 
+decision-making time, and rushed snaps. In this case, we created a new variable
+called playClockCategory which is a categorical variable that has counts of 
+plays in each of the 3 categories. Below is the distribution:
+
+```{r}
+plays_raw_data <- plays_raw_data %>%
+  mutate(playClockCategory = 
+           case_when(playClockAtSnap >= 15 ~ "playClock More Than 15s",               
+                      playClockAtSnap >= 5 & 
+                      playClockAtSnap < 15 ~ "playClock Between 5s and 15s", 
+                      playClockAtSnap < 5 ~ "playClock Less Than 5s",               
+    )
+  )
+
+plays_filtered <- plays_raw_data %>%
+  filter(!is.na(playClockCategory), !is.na(passResult))
+
+ggplot(plays_filtered, aes(x = playClockCategory)) +
+  geom_bar(fill = "steelblue", color = "black") +
+  labs(
+    title = "Frequency of Play Clock Categories",
+    x = "Play Clock Category",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+# Will add a summary of these tomorrow and still need to edit everything beneath this line.
+
+### Relationships Between Variables
 This is the most interesting find in my data. I categorized the playClockAtSnap 
 into high, medium, and low. I then plotted the results of the different buckets 
 to see the results. We can see that the lower the play clock, might have a 
@@ -97,18 +187,6 @@ the defense off guard. We can see that when the playClock is less than or equal 
 5s, the results of the play are more spread out than than when the playClock is higher
 indicating that results vary more.
 ```{r}
-plays_raw_data <- plays_raw_data %>%
-  mutate(playClockCategory = case_when(playClockAtSnap >= 15 ~ "playClock More Than 15s",               
-      playClockAtSnap >= 5 & playClockAtSnap < 15 ~ "playClock Between 5s and 15s", 
-      playClockAtSnap < 5 ~ "playClock Less Than 5s",               
-    )
-  )
-
-plays_filtered <- plays_raw_data %>%
-  filter(!is.na(passResult))
-
-plays_filtered <- plays_raw_data %>%
-  filter(!is.na(playClockCategory), !is.na(passResult))
 
 ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
   geom_bar(position = "fill") +
@@ -128,8 +206,8 @@ visualization, there is no clear correlation between the two.
 
 ```{r}
 
-
-ggplot(plays_filtered, aes(x = playClockCategory, y = yardsGained, fill = playClockCategory)) +
+ggplot(plays_filtered, aes(x = playClockCategory, y = yardsGained, 
+                           fill = playClockCategory)) +
   geom_boxplot() +
   labs(
     title = "Yards Gained by Play Clock Category",
@@ -145,15 +223,46 @@ And we can see here, the playClock is indeed statistically significant with a
 value of 0.0002549 < 0.05. The next step would be to find a model to potentially 
 predict results.
 ```{r}
-contingency_table <- table(plays_filtered$playClockCategory, plays_filtered$passResult)
+contingency_table <- table(plays_filtered$playClockCategory, 
+                           plays_filtered$passResult)
 
 chi_sq_test <- chisq.test(contingency_table)
 print(chi_sq_test)
 ```
+
+
+Further exploration of how the play clock affects other variables yields the
+following heat map. This heat map illustrates the play success rate based on 
+the play clock and yards to go during that play. 
+
+```{r}
+heatmap_data <- plays_filtered |>
+  mutate(yardsToGoBucket = cut(yardsToGo, breaks = c(0, 5, 10, 15, 20, 30), 
+                               right = FALSE)) |>
+  group_by(playClockCategory, yardsToGoBucket) |>
+  summarize(success_rate = 
+              mean(passResult == "C", na.rm = TRUE), .groups = "drop")
+
+ggplot(heatmap_data, aes(x = playClockCategory, y = yardsToGoBucket, 
+                         fill = success_rate)) +
+  geom_tile() +
+  labs(
+    title = "Success Rate Heatmap",
+    x = "Play Clock Bucket",
+    y = "Yards to Go Bucket",
+    fill = "Success Rate"
+  ) +
+  theme_minimal() +
+  scale_fill_gradient(low = "red", high = "green")
+```
+
+# Modeling
+
 Here for the predictive model I used a multinomial regression model because the 
-predictiction outcome is nominal with multiple categories which is perfect for this
-kind of model. The codeblock below makes the model and puts the predicted probabilities
-of the model back into the filtered plays dataframe as its own column.
+prediction outcome is nominal with multiple categories which is perfect for 
+this kind of model. The code block below makes the model and puts the predicted 
+probabilities of the model back into the filtered plays dataframe as its own 
+column.
 ```{r}
 library(nnet)
 
@@ -192,7 +301,8 @@ predicted_probs_df <- plays_filtered %>%
     values_to = "Probability"
   )
 
-ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = Predicted_Class)) +
+ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = 
+                                 Predicted_Class)) +
   geom_line(stat = "smooth", method = "loess") +
   labs(
     title = "Predicted Probabilities by Play Clock at Snap",
@@ -203,27 +313,13 @@ ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = Pre
   theme_minimal()
 ```
 
-#DON'T KNOW WHERE TO PUT THIS YET BUT ITS COOL
+# Prediction and Model Evaluation
 
-Further exploration of how the play clock affects other variables yields the
-following heat map. This heat map illustrates the play success rate based on 
-the play clock and yards to go during that play. 
+# Discussion
 
-```{r}
-heatmap_data <- plays_filtered |>
-  mutate(yardsToGoBucket = cut(yardsToGo, breaks = c(0, 5, 10, 15, 20, 30), right = FALSE)) |>
-  group_by(playClockCategory, yardsToGoBucket) |>
-  summarize(success_rate = mean(passResult == "C", na.rm = TRUE), .groups = "drop")
 
-ggplot(heatmap_data, aes(x = playClockCategory, y = yardsToGoBucket, fill = success_rate)) +
-  geom_tile() +
-  labs(
-    title = "Success Rate Heatmap",
-    x = "Play Clock Bucket",
-    y = "Yards to Go Bucket",
-    fill = "Success Rate"
-  ) +
-  theme_minimal() +
-  scale_fill_gradient(low = "red", high = "green")
-```
+
+
+
+
 
