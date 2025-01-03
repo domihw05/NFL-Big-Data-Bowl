@@ -199,22 +199,25 @@ the defense on their heels. The least frequent category is when the play clock
 is less than 5 seconds. This category includes plays where teams may take a 
 little longer to get set. This can be for a variety of reasons; teams may be
 sending players in motion before the snap or the quarterback may be making
-audibles or adjustments at the line of scrimmage.
-
-# I ADDED SUMMARIES BENEATH EACH VARIABLE ABOVE
+audibles or adjustments at the line of scrimmage. The significant parts that
+are relevant in the analysis below will be the more extreme buckets of less than
+5 seconds and more than 15 seconds. 
 
 
 ### Relationships Between Variables
-This is the most interesting find in my data. I categorized the playClockAtSnap 
-into high, medium, and low. I then plotted the results of the different buckets 
-to see the results. We can see that the lower the play clock, might have a 
-higher likelihood of rushed plays and false starts. I was thinking that it could 
-be correlated with poor play outcomes due to rushed decision making 
-or how ready the defense is. On the other hand, I theorized that the higher play 
-clock could be correlated with ready offenses while also potential catching
-the defense off guard. We can see that when the playClock is less than or equal to 
-5s, the results of the play are more spread out than than when the playClock is higher
-indicating that results vary more.
+Before building predictive models, it’s important to investigate potential 
+relationships between variables that could impact play outcomes. In this 
+section, we focus on the playClockAtSnap variable, which records the play clock 
+value at the time of the snap, and explore its relationship with pass results 
+and yards gained during a play.
+
+The play clock is a critical element in football, as it dictates when a play 
+must begin. A snap taken with a lower play clock may suggest hurried decision 
+making, potentially leading to rushed plays or errors. 
+
+Below are some visuals and descriptions exploring the relationships between
+variables: 
+
 ```{r}
 
 ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
@@ -227,11 +230,25 @@ ggplot(plays_filtered, aes(x = playClockCategory, fill = passResult)) +
   ) +
   theme_minimal()
 ```
+We can see that when the playClock is less than or equal to 
+5s (lower), there is a more varied distribution of pass results, including 
+incomplete passes, sacks, and interceptions. This suggests that rushed plays may 
+increase the likelihood of unfavorable outcomes.
+On the other hand (higher), it looks like high play clock snaps tend to result in more 
+complete passes, potentially indicating that the offense had more time to 
+organize and execute a well prepared play.
 
+```{r}
+contingency_table <- table(plays_filtered$playClockCategory, 
+                           plays_filtered$passResult)
 
-We also investigated the relationship that the play block at snap might have
-with the yards gained that play. However, as we can see in the below
-visualization, there is no clear correlation between the two.
+chi_sq_test <- chisq.test(contingency_table)
+print(chi_sq_test)
+```
+And we can see here, the playClock is indeed statistically significant with a
+value of 0.0002549 < 0.05. The next step would be to find a model to potentially 
+predict results.
+
 
 ```{r}
 
@@ -247,43 +264,52 @@ ggplot(plays_filtered, aes(x = playClockCategory, y = yardsGained,
   theme(legend.position = "none")
 
 ```
-
-And we can see here, the playClock is indeed statistically significant with a
-value of 0.0002549 < 0.05. The next step would be to find a model to potentially 
-predict results.
-```{r}
-contingency_table <- table(plays_filtered$playClockCategory, 
-                           plays_filtered$passResult)
-
-chi_sq_test <- chisq.test(contingency_table)
-print(chi_sq_test)
-```
-
+We also investigated the relationship that the play block at snap might have
+with the yards gained that play. However, as we can see the above visualization, 
+there is no clear correlation between the two.
 
 Further exploration of how the play clock affects other variables yields the
 following heat map. This heat map illustrates the play success rate based on 
 the play clock and yards to go during that play. 
 
 ```{r}
-heatmap_data <- plays_filtered |>
-  mutate(yardsToGoBucket = cut(yardsToGo, breaks = c(0, 5, 10, 15, 20, 30), 
-                               right = FALSE)) |>
-  group_by(playClockCategory, yardsToGoBucket) |>
-  summarize(success_rate = 
-              mean(passResult == "C", na.rm = TRUE), .groups = "drop")
+heatmap_data <- plays_filtered %>%
+  filter(!is.na(playClockCategory), !is.na(yardsToGo), yardsToGo >= 0, yardsToGo <= 30) %>%  
+  mutate(
+    yardsToGoBucket = cut(
+      yardsToGo, breaks = c(0, 5, 10, 15, 20, 30),
+      right = FALSE, include.lowest = TRUE
+    )
+  ) %>%
+  group_by(playClockCategory, yardsToGoBucket) %>%
+  summarize(success_rate = mean(passResult == "C", na.rm = TRUE), .groups = "drop")
 
-ggplot(heatmap_data, aes(x = playClockCategory, y = yardsToGoBucket, 
-                         fill = success_rate)) +
+ggplot(heatmap_data, aes(x = playClockCategory, y = yardsToGoBucket, fill = success_rate)) +
   geom_tile() +
   labs(
     title = "Success Rate Heatmap",
-    x = "Play Clock Bucket",
+    x = "Play Clock Category",
     y = "Yards to Go Bucket",
     fill = "Success Rate"
   ) +
   theme_minimal() +
   scale_fill_gradient(low = "red", high = "green")
 ```
+The heatmap above shows the success rate of plays based on whether the pass was 
+complete (passResult == "C"), categorized by play clock and yards-to-go buckets. 
+Notably, the highest success rate occurs when the play clock exceeds 15 seconds, 
+especially in long-yardage situations (20 to 30 yards), where the success rate 
+is over 70%. This suggests that more time on the clock leads to better play 
+execution, even when facing tougher distances.
+
+Interestingly, short-yardage situations (0 to 10 yards) do not yield higher 
+success rates. In fact, success rates in the [0, 5] and [5, 10] yards buckets 
+are lower than longer-yardage plays, indicating that defensive anticipation may 
+play a role. Additionally, when the play clock is less than 5 seconds, success 
+rates drop across all yardage buckets, likely due to rushed decision-making by 
+the offense. Overall, this heatmap shows a positive relationship between longer 
+play clock times and higher play success, particularly in longer-yardage 
+situations.
 
 # Modeling
 
@@ -341,8 +367,6 @@ ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color =
   ) +
   theme_minimal()
 ```
-
-# Prediction and Model Evaluation
 
 # Discussion
 
