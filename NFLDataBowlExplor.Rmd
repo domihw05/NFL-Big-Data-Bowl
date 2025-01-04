@@ -441,42 +441,47 @@ summary(win_prob_model)
 
 
 
-
+This is my final model
 ```{r}
+library(caret)
 
-plays_filtered <- plays_filtered %>%
-  mutate(success = ifelse(passResult == "C", 1, 0))
+set.seed(123)
 
-plays_filtered <- plays_filtered %>% filter(!is.na(success))
+train_index <- createDataPartition(plays_filtered$success, p = 0.70, list = FALSE)
+train_data <- plays_filtered[train_index, ]
+test_data <- plays_filtered[-train_index, ]
 
 success_model <- multinom(
   passResult ~ playClockAtSnap + down + yardsToGo + passLength +
     pff_passCoverage + dropbackType,
-  data = plays_filtered
+  data = train_data
 )
 
 summary(success_model)
 ```
 
 ```{r}
-plays_filtered <- plays_filtered %>% filter(!is.na(success))
+predictions <- predict(success_model, test_data)
 
-predictions <- predict(success_model, newdata = plays_filtered)
+predictions <- as.factor(predictions)
 
-predicted_class <- ifelse(predictions > 0.5, 1, 0)
+library(caret)
 
-confusion_matrix <- confusionMatrix(as.factor(predictions), as.factor(plays_filtered$passResult))
+conf_matrix <- confusionMatrix(predictions, as.factor(test_data$passResult))
 
-print(confusion_matrix)
+print(conf_matrix)
 ```
 
-```{r}
-library(pscl)
 
-pseudo_r2 <- pR2(success_model)
 
-print(pseudo_r2)
-```
+
+
+
+
+
+
+
+
 # Discussion
 
 
