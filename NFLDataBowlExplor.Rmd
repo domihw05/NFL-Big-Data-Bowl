@@ -447,7 +447,7 @@ library(caret)
 
 set.seed(123)
 
-train_index <- createDataPartition(plays_filtered$success, p = 0.70, list = FALSE)
+train_index <- createDataPartition(plays_filtered$passResult, p = 0.80, list = FALSE)
 train_data <- plays_filtered[train_index, ]
 test_data <- plays_filtered[-train_index, ]
 
