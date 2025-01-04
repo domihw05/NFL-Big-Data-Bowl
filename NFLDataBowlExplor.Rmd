@@ -439,6 +439,44 @@ win_prob_model <- lm(expectedPointsAdded ~ playClockAtSnap + yardsToGo + down +
 summary(win_prob_model)
 ```
 
+
+
+
+```{r}
+
+plays_filtered <- plays_filtered %>%
+  mutate(success = ifelse(passResult == "C", 1, 0))
+
+plays_filtered <- plays_filtered %>% filter(!is.na(success))
+
+success_model <- multinom(
+  passResult ~ playClockAtSnap + down + yardsToGo + passLength +
+    pff_passCoverage + dropbackType,
+  data = plays_filtered
+)
+
+summary(success_model)
+```
+
+```{r}
+plays_filtered <- plays_filtered %>% filter(!is.na(success))
+
+predictions <- predict(success_model, newdata = plays_filtered)
+
+predicted_class <- ifelse(predictions > 0.5, 1, 0)
+
+confusion_matrix <- confusionMatrix(as.factor(predictions), as.factor(plays_filtered$passResult))
+
+print(confusion_matrix)
+```
+
+```{r}
+library(pscl)
+
+pseudo_r2 <- pR2(success_model)
+
+print(pseudo_r2)
+```
 # Discussion
 
 
