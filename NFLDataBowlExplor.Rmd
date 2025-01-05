@@ -123,7 +123,7 @@ plays_raw_data <- plays_raw_data |>
 
 ## Background and Variables
 We analyze multiple datasets, including player statistics, play-by-play data, 
-and game metadata, sourced from the 2024–2025 NFL season as part of the Big Data
+and tracking data, sourced from the 2024–2025 NFL season as part of the Big Data
 Bowl competition. 
 
 The data that was used for most of analysis came from the “plays.csv” data set, 
@@ -319,23 +319,6 @@ there is no clear correlation between the two. That being said, we do notice
 that there seems to be slightly more variation in yards gained when the play
 clock is less than 15 seconds compared to when it is more than 15 seconds.
 
-```{r}
-# Summarize yardsGained by playClockCategory
-plays_summary <- plays_filtered |>
-  group_by(playClockCategory) |>
-  summarize(
-    mean_yards = mean(yardsGained, na.rm = TRUE),
-    sd_yards = sd(yardsGained, na.rm = TRUE),  # Standard deviation
-    min_yards = min(yardsGained, na.rm = TRUE),
-    max_yards = max(yardsGained, na.rm = TRUE),
-    n = n()
-  )
-print(plays_summary)
-```
-
-This exploration confirms what we saw above, slightly more variation and range
-of yards gained when the play clock is lower.
-
 Further exploration of how the play clock affects other variables yields the
 following heat map. This heat map illustrates the play success rate based on 
 the play clock and yards to go during that play. 
@@ -378,8 +361,9 @@ rates drop across all yardage buckets. Overall, this heatmap shows a positive
 relationship between higher play clock times and play success, particularly in 
 longer-yardage situations.
 
-Further, we can explore how offensive width and defensive width may have an 
-impact on how fast the ball is snapped.
+Further, we can explore the tracking data to see if offensive width, defensive
+width, and total offensive movement may have an impact on how fast the ball is 
+snapped.
 
 ```{r}
 # Offensive width x play clock at snap
@@ -433,9 +417,10 @@ scrambles and sacks, because the data did not record any results and were unused
 in our model. We discovered that playClockAtSnap, down, 
 yardsToGo, passLength, pff_passCoverage, dropbackType are all correlated with 
 passResult to some degree. The model predicts the pass result using 
-these variables. To train the model, we have partitioned the data to a 
-train_data and a test_data in which we will train the model on the train_data 
-and test the model's success on the test_data. \
+these variables as well as some of the player tracking data from above. To train 
+the model, we have partitioned the data to a train_data and a test_data in which 
+we will train the model on the train_data and test the model's success on the 
+test_data. \
 A common ratio for training and testing is 80 to 20 percent of the whole model 
 which is used below. The code block below splits the plays_filtered data and 
 trains the model named passResult_model. Below are the results: 
@@ -482,19 +467,19 @@ print(conf_matrix)
 ```
 
 The results of the model are as follows from the confusion matrix: \ 
-- 1025 plays were correctly predicted as Complete Passes.\
-- 173 plays were correctly predicted as Incomplete Passes.\ 
-- 400 plays were misclassified as complete when they were actually incomplete.\
+- 1027 plays were correctly predicted as Complete Passes.\
+- 174 plays were correctly predicted as Incomplete Passes.\ 
+- 399 plays were misclassified as complete when they were actually incomplete.\
 - 27 plays were misclassified as complete when they were actually interceptions.\
-- 99 plays were misclassified as incomplete when they were actually complete.\
+- 97 plays were misclassified as incomplete when they were actually complete.\
 - The model did failed to predict any results as I\ 
 
 When we look at the overall statistics we can see that the accuracy of the model 
-is almost 70% at approximately 69.05% accuracy. This is an improvement to the No 
+is almost 70% at approximately 69.22% accuracy. This is an improvement to the No 
 Information rate of 64.78% which would be the accuracy if the model predicted 
 passResult purely off of chance. Furthermore, we can see the confidence interval
-says with 95% confidence that the true prediction accuracy is between 66.81% and 
-and 71.22%. 
+says with 95% confidence that the true prediction accuracy is between 66.99% and 
+and 71.39%. 
 
 ## Neural Network Model
 Justin put your model under here:
@@ -713,49 +698,6 @@ ggplot(loss_df, aes(x = Epoch)) +
   theme_minimal()
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-____________________________________________________________________________
-Now we want to attempt to build a model that can help us find the optimal
-play clock time at which to snap the ball given the yards left to go, the down,
-the game clock and the offensive formation.
-
-```{r}
-#filter out relevant variables for model
-plays_filtered2 <- plays_raw_data |>
-  filter(!is.na(playClockAtSnap), !is.na(yardsToGo), !is.na(gameClock), !is.na(down))
-```
-
-Below, we've constructed a model that predicts the play clock at the time of
-snap given the yards to go, the game clock time, the down and the offensive
-formation.
-
-```{r}
-playClock_model <- lm(playClockAtSnap ~ yardsToGo + gameClock + down + offenseFormation, 
-                      data = plays_filtered2)
-
-summary(playClock_model)
-
-
-```
-Given the summary statistics, the model is statistically significant with an
-overall p-value of $2.2 * 10^{-16}$. Additionally, every single variable we
-used to predict the play clock at snap was statistically significant at at least
-an alpha level of 0.05. It is also important to note that this model has an
-adjusted R-squared of 0.05714, which tells us that the 5.7% of the variation
-in the playClockAtSnap can be explained by this model. 
-
 
 
 
