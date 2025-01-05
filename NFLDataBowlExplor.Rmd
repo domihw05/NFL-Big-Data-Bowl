@@ -356,10 +356,7 @@ execution, even when facing tougher distances.
 Interestingly, short-yardage situations (0 to 10 yards) do not yield higher 
 success rates. In fact, success rates in the [0, 5] and [5, 10] yard buckets 
 are lower than longer-yardage plays, indicating that defensive anticipation may 
-play a role. Additionally, when the play clock is less than 5 seconds, success 
-rates drop across all yardage buckets. Overall, this heatmap shows a positive 
-relationship between higher play clock times and play success, particularly in 
-longer-yardage situations.
+play a role.
 
 Further, we can explore the tracking data to see if offensive width, defensive
 width, and total offensive movement may have an impact on how fast the ball is 
@@ -701,13 +698,13 @@ ggplot(loss_df, aes(x = Epoch)) +
 
 # Discussion
 
-* PLAY CLOCK *
+## Play Clock
 We found that higher play clock (i.e. quicker snaps) correlates with better
 outcomes for the offensive teams, particularly in long yardage situations. We suppose that this is because it gives the defense less time to get set and read 
 the offensive team. Additionally, we found that more offensive motion correlates with lower play clock values, which follows logically given that motion would 
 delay the snap time.
 
-* MODEL INSIGHTS *
+## Model Insights
 The multinomial model predicted a pass' result using the play clock at snap,
 down, offensive motion, offensive width, defensive width, yards to go for first
 down, pass length, pass coverage and dropback type. This model was able to
@@ -722,7 +719,7 @@ insights. These models can be employed by teams to model game situations to
 find the ideal time to snap the ball each down (i.e. hurry-up offense vs
 taking longer).
 
-* FUTURE WORK *
+## Future Work
 In the future, we want to optimize the models to improve prediction accuracy.
 We could also include rushing plays to potentially help predict the success
 of more than just passing plays.
