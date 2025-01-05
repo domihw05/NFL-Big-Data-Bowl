@@ -482,7 +482,6 @@ says with 95% confidence that the true prediction accuracy is between 66.99% and
 and 71.39%. 
 
 ## Neural Network Model
-Justin put your model under here:
 
 ```{r}
 library(torch)
@@ -700,23 +699,36 @@ ggplot(loss_df, aes(x = Epoch)) +
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Discussion
 
+* PLAY CLOCK *
+We found that higher play clock (i.e. quicker snaps) correlates with better
+outcomes for the offensive teams, particularly in long yardage situations. We suppose that this is because it gives the defense less time to get set and read 
+the offensive team. Additionally, we found that more offensive motion correlates with lower play clock values, which follows logically given that motion would 
+delay the snap time.
+
+* MODEL INSIGHTS *
+The multinomial model predicted a pass' result using the play clock at snap,
+down, offensive motion, offensive width, defensive width, yards to go for first
+down, pass length, pass coverage and dropback type. This model was able to
+successfully predict the pass result 69.2% of the time.
+
+The neural network predicted a pass' result using the play clock at snap, down,
+yards to go for first down, pass length, pass coverage and dropback type. This
+model had a fairly comparable prediction accuracy of 68.7%.
+
+While these models aren't perfect, they do offer some relatively accurate 
+insights. These models can be employed by teams to model game situations to
+find the ideal time to snap the ball each down (i.e. hurry-up offense vs
+taking longer).
+
+* FUTURE WORK *
+In the future, we want to optimize the models to improve prediction accuracy.
+We could also include rushing plays to potentially help predict the success
+of more than just passing plays.
+
+It would also be interesting to explore specific situations to come up with
+some situational rules on when to snap the ball in the play clock.
 
 
 
