@@ -408,7 +408,220 @@ and 71.22%.
 ## Neural Network Model
 Justin put your model under here:
 
+```{r}
+library(torch)
+library(dplyr)
+library(ggplot2)
+library(caret)
 
+# -----------------------------------------------------
+# 1) Data Preparation
+# -----------------------------------------------------
+
+# Filter the data to only relevant passResult values and drop rows with NA
+plays_filtered <- plays_filtered %>%
+  filter(passResult %in% c("C", "I", "IN")) %>%
+  filter(
+    !is.na(playClockAtSnap),
+    !is.na(down),
+    !is.na(yardsToGo),
+    !is.na(passLength),
+    !is.na(pff_passCoverage),
+    !is.na(dropbackType),
+    !is.na(passResult)
+  )
+
+# Re-factor passResult in the desired order: "C" -> 1, "I" -> 2, "IN" -> 3
+plays_filtered$passResult <- factor(plays_filtered$passResult, levels = c("C", "I", "IN"))
+plays_filtered$passResult <- as.numeric(plays_filtered$passResult)
+
+# -----------------------------------------------------
+# 2) Create Dummy Columns (pff_passCoverage + dropbackType)
+# -----------------------------------------------------
+plays_filtered$pff_passCoverage <- factor(plays_filtered$pff_passCoverage)
+plays_filtered$dropbackType     <- factor(plays_filtered$dropbackType)
+
+categorical_dummies <- model.matrix(
+  ~ pff_passCoverage + dropbackType - 1,
+  data = plays_filtered
+)
+
+# -----------------------------------------------------
+# 3) Scale Numeric Columns
+# -----------------------------------------------------
+num_cols <- c("playClockAtSnap", "down", "yardsToGo", "passLength")
+plays_filtered[num_cols] <- scale(plays_filtered[num_cols])
+
+# -----------------------------------------------------
+# 4) Build Final Feature Matrix X
+# -----------------------------------------------------
+X <- cbind(
+  # The four scaled numeric columns
+  plays_filtered[, num_cols],
+  # The dummy columns
+  categorical_dummies
+)
+X <- as.matrix(X)  # convert to numeric matrix
+
+# -----------------------------------------------------
+# 5) Define Target
+# -----------------------------------------------------
+y <- plays_filtered$passResult
+
+# -----------------------------------------------------
+# Convert R objects to Torch Tensors
+# -----------------------------------------------------
+X_tensor <- torch_tensor(X, dtype = torch_float())
+y_tensor <- torch_tensor(y, dtype = torch_long())
+
+# -----------------------------------------------------
+# 6) Train-Test Split
+# -----------------------------------------------------
+set.seed(1)
+train_indices <- sample(seq_len(nrow(X)), size = 0.8 * nrow(X))
+test_indices  <- setdiff(seq_len(nrow(X)), train_indices)
+
+X_train <- X_tensor[train_indices, ]
+y_train <- y_tensor[train_indices]
+X_test  <- X_tensor[test_indices, ]
+y_test  <- y_tensor[test_indices]
+
+# -----------------------------------------------------
+# 7) Define a Neural Network Model
+# -----------------------------------------------------
+model <- nn_module(
+  initialize = function(num_features) {
+    self$fc1    <- nn_linear(num_features, 8)
+    self$drop1  <- nn_dropout(p = 0.3)
+    self$fc2    <- nn_linear(8, 8)
+    self$drop2  <- nn_dropout(p = 0.3)
+    self$fc3    <- nn_linear(8, 8)
+    self$output <- nn_linear(8, 3)
+  },
+  forward = function(x) {
+    x <- torch_relu(self$fc1(x))
+    x <- self$drop1(x)
+    x <- torch_relu(self$fc2(x))
+    x <- self$drop2(x)
+    x <- torch_relu(self$fc3(x))
+    x <- self$output(x)
+    x
+  }
+)
+
+torch_model <- model(ncol(X))
+
+# -----------------------------------------------------
+# 8) Define Loss Function (unweighted) & Optimizer
+# -----------------------------------------------------
+loss_fn  <- nn_cross_entropy_loss()
+optimizer <- optim_adam(torch_model$parameters, lr = 0.0005, weight_decay = 1e-4)
+
+# -----------------------------------------------------
+# 9) Training Loop
+# -----------------------------------------------------
+num_epochs <- 50
+batch_size <- 50
+
+train_losses <- numeric(num_epochs)
+test_losses  <- numeric(num_epochs)
+
+for (epoch in seq_len(num_epochs)) {
+  
+  torch_model$train()
+  total_train_loss   <- 0
+  shuffled_indices   <- sample(seq_len(nrow(X_train)))
+  num_batches        <- ceiling(nrow(X_train) / batch_size)
+  
+  for (i in seq_len(num_batches)) {
+    start_idx <- (i - 1) * batch_size + 1
+    end_idx   <- min(i * batch_size, nrow(X_train))
+    batch_ids <- shuffled_indices[start_idx:end_idx]
+    
+    batch_X <- X_train[batch_ids, ]
+    batch_y <- y_train[batch_ids]
+    
+    optimizer$zero_grad()
+    predictions <- torch_model(batch_X)
+    loss <- loss_fn(predictions, batch_y)
+    loss$backward()
+    optimizer$step()
+    
+    total_train_loss <- total_train_loss + loss$item()
+  }
+  
+  # Evaluate on test set
+  torch_model$eval()
+  with_no_grad({
+    test_predictions <- torch_model(X_test)
+    test_loss_val <- loss_fn(test_predictions, y_test)$item()
+  })
+  
+  avg_train_loss <- total_train_loss / num_batches
+  train_losses[epoch] <- avg_train_loss
+  test_losses[epoch]  <- test_loss_val
+  
+  if (epoch %% 10 == 0) {
+    cat(sprintf("Epoch %d | Train Loss: %.4f | Test Loss: %.4f\n",
+                epoch, avg_train_loss, test_loss_val))
+  }
+}
+
+# -----------------------------------------------------
+# 10) Evaluate Overall Accuracy
+# -----------------------------------------------------
+torch_model$eval()
+with_no_grad({
+  full_predictions  <- torch_model(X_tensor)
+  predicted_classes <- full_predictions$argmax(dim = 2)
+  correct           <- (predicted_classes == y_tensor)$to(dtype = torch_float())
+  overall_accuracy  <- torch_mean(correct)$item()
+})
+cat(sprintf("Overall Classification Accuracy: %.2f%%\n", 100 * overall_accuracy))
+
+# Create a data frame of true vs. predicted results
+results_df <- data.frame(
+  TruePassResult      = as_array(y_tensor),
+  PredictedPassResult = as_array(predicted_classes)
+)
+head(results_df, 50)
+
+# -----------------------------------------------------
+# 11) Evaluate on Test Set & Build Confusion Matrix
+# -----------------------------------------------------
+torch_model$eval()
+with_no_grad({
+  test_preds <- torch_model(X_test)
+  predicted_test_classes <- test_preds$argmax(dim = 2)
+})
+
+true_test <- as_array(y_test)
+pred_test <- as_array(predicted_test_classes)
+
+cm <- confusionMatrix(
+  factor(pred_test, levels = c(1,2,3)),
+  factor(true_test, levels = c(1,2,3))
+)
+print(cm)
+
+# -----------------------------------------------------
+# 12) Plot Training & Test Loss
+# -----------------------------------------------------
+loss_df <- data.frame(
+  Epoch = seq_len(num_epochs),
+  TrainLoss = train_losses,
+  TestLoss  = test_losses
+)
+
+ggplot(loss_df, aes(x = Epoch)) +
+  geom_line(aes(y = TrainLoss, color = "Train Loss")) +
+  geom_line(aes(y = TestLoss, color = "Test Loss")) +
+  scale_color_manual(name = "Loss Type", 
+                     values = c("Train Loss" = "blue", "Test Loss" = "red")) +
+  labs(title = "Training and Test Loss", x = "Epoch", y = "Loss") +
+  theme_minimal()
+
+```
 
 
 
