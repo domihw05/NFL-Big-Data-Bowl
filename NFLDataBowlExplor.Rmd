@@ -381,6 +381,7 @@ print(conf_matrix)
 ```
 
 
+Justin put your model under here:
 
 
 
@@ -391,6 +392,12 @@ print(conf_matrix)
 
 
 
+
+
+
+
+
+____________________________________________________________________________
 Now we want to attempt to build a model that can help us find the optimal
 play clock time at which to snap the ball given the yards left to go, the down,
 the game clock and the offensive formation.
