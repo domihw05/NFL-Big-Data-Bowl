@@ -69,8 +69,54 @@ for (file in files) {
     o = ifelse(playDirection == "left", o + 180, o),
     o = ifelse(o > 360, o - 360, o)
     )
+  tracking <- tracking |>
+    left_join(player_raw_data |>
+              select(nflId,position),
+              by = c("nflId")) |>
+    left_join(plays_raw_data |>
+              select(gameId,playId,possessionTeam),
+              by = c("gameId","playId"))
   tracking_list[[file]] <- tracking
 }
+```
+
+Tracking data mutation is below. Here, we extract the width of each team's
+formation before the snap.
+
+```{r}
+# Initialize an empty data frame to store alignment data
+alignment_data <- data.frame()
+
+for (file in files) {
+  # Process each file and calculate alignment data
+  file_alignment_data <- tracking_list[[file]] |>
+    # Add the `offense` column based on possessionTeam or other indicators
+    mutate(offense = (club == possessionTeam)) |>
+    filter(frameType == "BEFORE_SNAP") |>
+    mutate(
+      total_motion = ifelse(offense, 
+                            sum(sqrt((x - lag(x, default = first(x)))^2 + 
+                                     (y - lag(y, default = first(y)))^2), na.rm = TRUE),
+                            NA_real_)
+    ) |>
+    ungroup() |>
+    group_by(gameId, playId) |>
+    summarize(
+      # Width calculations
+      offensive_width = max(x[offense], na.rm = TRUE) - min(x[offense], na.rm = TRUE),
+      defensive_width = max(x[!offense], na.rm = TRUE) - min(x[!offense], na.rm = TRUE),
+      # Total offensive motion (sum of offensive player motion)
+      total_offensive_motion = sum(total_motion, na.rm = TRUE),
+      .groups = "drop"  # Drop grouping after summarizing
+    )
+  
+  # Append the results from the current file to the overall data
+  alignment_data <- bind_rows(alignment_data, file_alignment_data)
+}
+
+plays_raw_data <- plays_raw_data |>
+  left_join(alignment_data, by = c("gameId", "playId"))
+
 ```
 
 # Exploratory Analysis:
@@ -332,6 +378,51 @@ rates drop across all yardage buckets. Overall, this heatmap shows a positive
 relationship between higher play clock times and play success, particularly in 
 longer-yardage situations.
 
+Further, we can explore how offensive width and defensive width may have an 
+impact on how fast the ball is snapped.
+
+```{r}
+# Offensive width x play clock at snap
+ggplot(plays_raw_data, aes(x = offensive_width, y = playClockAtSnap)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Impact of Offensive Width on Play Clock at Snap",
+    x = "Offensive Width (yards)",
+    y = "Play Clock at Snap"
+  )
+
+# Defensive width x play clock at snap
+ggplot(plays_raw_data, aes(x = defensive_width, y = playClockAtSnap)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Impact of Defensive Width on Play Clock at Snap",
+    x = "Defensive Width (yards)",
+    y = "Play Clock at Snap"
+  )
+
+# Defensive width x offensive width
+ggplot(plays_raw_data, aes(x = defensive_width, y = offensive_width)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Impact of Defensive Width on Offensive Width",
+    x = "Defensive Width (yards)",
+    y = "Offensive Width (yards)"
+  )
+
+# Motion x play clock at snap
+ggplot(plays_raw_data, aes(x = total_offensive_motion, y = playClockAtSnap)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Impact of Motion on Play Clock at Snap",
+    x = "Total Offensive Motion (yards)",
+    y = "Play Clock at Snap"
+  )
+```
+
 # Modeling
 
 ## Multinomial Model
@@ -367,7 +458,7 @@ train_data$passResult <- droplevels(train_data$passResult)
 test_data$passResult <- droplevels(test_data$passResult)
 
 passResult_model <- multinom(
-  passResult ~ playClockAtSnap + down + yardsToGo + passLength +
+  passResult ~ playClockAtSnap + down + total_offensive_motion + (offensive_width / defensive_width) + yardsToGo + passLength +
     pff_passCoverage + dropbackType,
   data = train_data
 )
@@ -665,15 +756,7 @@ an alpha level of 0.05. It is also important to note that this model has an
 adjusted R-squared of 0.05714, which tells us that the 5.7% of the variation
 in the playClockAtSnap can be explained by this model. 
 
-```{r}
-# Fit a linear model
-win_prob_model <- lm(expectedPointsAdded ~ playClockAtSnap + yardsToGo + down + 
-                     gameClock + offenseFormation, 
-                     data = plays_filtered2)
 
-# Summarize the model
-summary(win_prob_model)
-```
 
 
 
