@@ -330,60 +330,57 @@ longer-yardage situations.
 
 # Modeling
 
-Here for the predictive model I used a multinomial regression model because the 
-prediction outcome is nominal with multiple categories which is perfect for 
-this kind of model. The code block below makes the model and puts the predicted 
-probabilities of the model back into the filtered plays dataframe as its own 
-column.
+Here for the predictive model, we implemented a multinomial regression model 
+because the prediction outcome is nominal with multiple categories which is 
+perfect for this kind of model. The model predicts the pass result using 
+variables from the EDA above that were correlated with pass result: 
+playClockAtSnap, down, yardsToGo, passLength, pff_passCoverage, dropbackType. To 
+train the model, we have partitioned the data to a train_data and a test_data in 
+which we will train the model on the train_data and test the model's success on 
+the test_data. A common ratio for training and testing is 80 to 20 percent of 
+the whole model which is used below. The code block below splits the 
+plays_filtered data and trains the model named passResult_model. 
+Below are the results: 
 ```{r}
-library(nnet)
+library(caret)
 
-plays_filtered <- plays_filtered %>%
-  mutate(
-    playClockCategory = factor(playClockCategory),
-    passResult = factor(passResult)
-  ) |>
-  filter(!is.na(passResult), !is.na(playClockAtSnap))
+set.seed(123)
 
-multinom_model <- multinom(passResult ~ playClockAtSnap, data = plays_filtered)
+train_index <- createDataPartition(plays_filtered$passResult, p = 0.80, list = FALSE)
+train_data <- plays_filtered[train_index, ]
+test_data <- plays_filtered[-train_index, ]
 
-summary(multinom_model)
+passResult_model <- multinom(
+  passResult ~ playClockAtSnap + down + yardsToGo + passLength +
+    pff_passCoverage + dropbackType,
+  data = train_data
+)
 
-predictions <- predict(multinom_model, type = "probs")
+summary(success_model)
+```
+The summary above gives a variety of statistics including coefficients and 
+standard errors of all the different variables and relative subcategories. 
+Instead of analyzing these statistics, we analyze the contigency table below
+that summarizes the success of the model on the test_data: 
 
-nrow(plays_filtered)
-nrow(predictions)
-plays_filtered <- cbind(plays_filtered, predictions)
+```{r}
+predictions <- predict(passResult_model, test_data)
+
+predictions <- as.factor(predictions)
+
+library(caret)
+
+conf_matrix <- confusionMatrix(predictions, as.factor(test_data$passResult))
+
+print(conf_matrix)
 ```
 
-Here I plotted the predicted probabilities to visualize the model. As we can see,
-as the play clock at snap increases, the probability of completing a pass also increases 
-from the prediction of the model. This is reinforcing what we saw before on the 
-exploratory data histogram of more completions when the play clock is higher. We 
-can also see that the probabilities of the other categories are decreasing which is 
-also parallel to what we saw before we fitted the model. Next we should discuss 
-that this predictor may not be the best predictor and model for pass results due to
-the low explanation of variance from the model.
-```{r}
-predicted_probs_df <- plays_filtered %>%
-  select(playClockAtSnap, passResult, C, I, IN, R, S) %>%  
-  pivot_longer(
-    cols = C:S,  
-    names_to = "Predicted_Class",
-    values_to = "Probability"
-  )
 
-ggplot(predicted_probs_df, aes(x = playClockAtSnap, y = Probability, color = 
-                                 Predicted_Class)) +
-  geom_line(stat = "smooth", method = "loess") +
-  labs(
-    title = "Predicted Probabilities by Play Clock at Snap",
-    x = "Play Clock at Snap",
-    y = "Predicted Probability",
-    color = "Pass Result"
-  ) +
-  theme_minimal()
-```
+
+
+
+
+
 Now, to evaluate the accuracy of the predicted classes from this model we look
 at this confusion matrix. We see that the predicted class heavily favors
 completed passes (which makes sense given that it has the highest probability
@@ -441,36 +438,7 @@ summary(win_prob_model)
 
 
 
-This is my final model
-```{r}
-library(caret)
 
-set.seed(123)
-
-train_index <- createDataPartition(plays_filtered$passResult, p = 0.80, list = FALSE)
-train_data <- plays_filtered[train_index, ]
-test_data <- plays_filtered[-train_index, ]
-
-success_model <- multinom(
-  passResult ~ playClockAtSnap + down + yardsToGo + passLength +
-    pff_passCoverage + dropbackType,
-  data = train_data
-)
-
-summary(success_model)
-```
-
-```{r}
-predictions <- predict(success_model, test_data)
-
-predictions <- as.factor(predictions)
-
-library(caret)
-
-conf_matrix <- confusionMatrix(predictions, as.factor(test_data$passResult))
-
-print(conf_matrix)
-```
 
 
 
