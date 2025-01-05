@@ -334,39 +334,49 @@ longer-yardage situations.
 
 # Modeling
 
+## Multinomial Model
 Here for the predictive model, we implemented a multinomial regression model 
 because the prediction outcome is nominal with multiple categories which is 
-perfect for this kind of model. We discovered that playClockAtSnap, down, 
+perfect for this kind of model. We removed the possibilities of R and S, 
+scrambles and sacks, because the data did not record any results and were unused 
+in our model. We discovered that playClockAtSnap, down, 
 yardsToGo, passLength, pff_passCoverage, dropbackType are all correlated with 
 passResult to some degree. The model predicts the pass result using 
 these variables. To train the model, we have partitioned the data to a 
 train_data and a test_data in which we will train the model on the train_data 
-and test the model's success on the test_data. A common ratio for training and 
-testing is 80 to 20 percent of the whole model which is used below. The code 
-block below splits the plays_filtered data and trains the model named 
-passResult_model. Below are the results: 
+and test the model's success on the test_data. \
+A common ratio for training and testing is 80 to 20 percent of the whole model 
+which is used below. The code block below splits the plays_filtered data and 
+trains the model named passResult_model. Below are the results: 
 ```{r}
 library(caret)
 library(nnet)
 
 set.seed(123)
 
+plays_filtered <- plays_filtered %>%
+  filter(!passResult %in% c("R", "S"))
+
+plays_filtered$passResult <- factor(plays_filtered$passResult)
+
 train_index <- createDataPartition(plays_filtered$passResult, p = 0.80, list = FALSE)
 train_data <- plays_filtered[train_index, ]
 test_data <- plays_filtered[-train_index, ]
+
+train_data$passResult <- droplevels(train_data$passResult)
+test_data$passResult <- droplevels(test_data$passResult)
 
 passResult_model <- multinom(
   passResult ~ playClockAtSnap + down + yardsToGo + passLength +
     pff_passCoverage + dropbackType,
   data = train_data
 )
-
-summary(passResult_model)
 ```
-The summary above gives a variety of statistics including coefficients and 
-standard errors of all the different variables and relative subcategories. 
-Instead of analyzing these statistics, we analyze the contigency table below
-that summarizes the success of the model on the test_data: 
+If we were to look at the summary of the mode, it would give a variety of 
+statistics including coefficients and standard errors of all the different 
+variables and relative subcategories. Instead of analyzing these statistics, we 
+analyze the contingency table below that summarizes the success of the model on 
+the test_data: 
 
 ```{r}
 predictions <- predict(passResult_model, test_data)
@@ -380,7 +390,22 @@ conf_matrix <- confusionMatrix(predictions, as.factor(test_data$passResult))
 print(conf_matrix)
 ```
 
+The results of the model are as follows from the confusion matrix: \ 
+- 1025 plays were correctly predicted as Complete Passes.\
+- 173 plays were correctly predicted as Incomplete Passes.\ 
+- 400 plays were misclassified as complete when they were actually incomplete.\
+- 27 plays were misclassified as complete when they were actually interceptions.\
+- 99 plays were misclassified as incomplete when they were actually complete.\
+- The model did failed to predict any results as I\ 
 
+When we look at the overall statistics we can see that the accuracy of the model 
+is almost 70% at approximately 69.05% accuracy. This is an improvement to the No 
+Information rate of 64.78% which would be the accuracy if the model predicted 
+passResult purely off of chance. Furthermore, we can see the confidence interval
+says with 95% confidence that the true prediction accuracy is between 66.81% and 
+and 71.22%. 
+
+## Neural Network Model
 Justin put your model under here:
 
 
@@ -436,6 +461,7 @@ win_prob_model <- lm(expectedPointsAdded ~ playClockAtSnap + yardsToGo + down +
 # Summarize the model
 summary(win_prob_model)
 ```
+
 
 
 
