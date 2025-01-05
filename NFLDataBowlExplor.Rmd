@@ -497,7 +497,6 @@ says with 95% confidence that the true prediction accuracy is between 66.81% and
 and 71.22%. 
 
 ## Neural Network Model
-Justin put your model under here:
 
 ```{r}
 library(torch)
@@ -715,66 +714,36 @@ ggplot(loss_df, aes(x = Epoch)) +
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-____________________________________________________________________________
-Now we want to attempt to build a model that can help us find the optimal
-play clock time at which to snap the ball given the yards left to go, the down,
-the game clock and the offensive formation.
-
-```{r}
-#filter out relevant variables for model
-plays_filtered2 <- plays_raw_data |>
-  filter(!is.na(playClockAtSnap), !is.na(yardsToGo), !is.na(gameClock), !is.na(down))
-```
-
-Below, we've constructed a model that predicts the play clock at the time of
-snap given the yards to go, the game clock time, the down and the offensive
-formation.
-
-```{r}
-playClock_model <- lm(playClockAtSnap ~ yardsToGo + gameClock + down + offenseFormation, 
-                      data = plays_filtered2)
-
-summary(playClock_model)
-
-
-```
-Given the summary statistics, the model is statistically significant with an
-overall p-value of $2.2 * 10^{-16}$. Additionally, every single variable we
-used to predict the play clock at snap was statistically significant at at least
-an alpha level of 0.05. It is also important to note that this model has an
-adjusted R-squared of 0.05714, which tells us that the 5.7% of the variation
-in the playClockAtSnap can be explained by this model. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Discussion
 
+* PLAY CLOCK *
+We found that higher play clock (i.e. quicker snaps) correlates with better
+outcomes for the offensive teams, particularly in long yardage situations. We suppose that this is because it gives the defense less time to get set and read 
+the offensive team. Additionally, we found that more offensive motion correlates with lower play clock values, which follows logically given that motion would 
+delay the snap time.
+
+* MODEL INSIGHTS *
+The multinomial model predicted a pass' result using the play clock at snap,
+down, offensive motion, offensive width, defensive width, yards to go for first
+down, pass length, pass coverage and dropback type. This model was able to
+successfully predict the pass result 69.2% of the time.
+
+The neural network predicted a pass' result using the play clock at snap, down,
+yards to go for first down, pass length, pass coverage and dropback type. This
+model had a fairly comparable prediction accuracy of 68.7%.
+
+While these models aren't perfect, they do offer some relatively accurate 
+insights. These models can be employed by teams to model game situations to
+find the ideal time to snap the ball each down (i.e. hurry-up offense vs
+taking longer).
+
+* FUTURE WORK *
+In the future, we want to optimize the models to improve prediction accuracy.
+We could also include rushing plays to potentially help predict the success
+of more than just passing plays.
+
+It would also be interesting to explore specific situations to come up with
+some situational rules on when to snap the ball in the play clock.
 
 
 
