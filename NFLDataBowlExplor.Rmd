@@ -103,8 +103,9 @@ and many more.
 ### Distributions of Important Variables
 There were a variety of possible variables that along with playClockAtSnap
 that would be important in our analysis. This section explores distributions 
-of important variables and the relationships between them. Below are the 
-different variables and their distributions that we looked at in our analysis: 
+of important variables and the relationships between them. Below are some of the 
+more important variables and their distributions that we looked at in 
+our analysis: 
 
 
 passResult (Categorical):
@@ -206,37 +207,6 @@ Yards to Go seems to be slightly normally distributed with a significant outlier
 with the vast majority of plays being at 10 yards to go. This makes sense as
 every play defaults to 10 yards to go for a first down. The distribution is
 slightly right skewed with more plays with less than 10 yards to go.
-
-Down (Quantitative):
-```{r}
-ggplot(plays_filtered, aes(x = as.factor(down))) +
-  geom_bar(fill = "steelblue", color = "black") +
-  labs(title = "Distribution of Downs", x = "Down", y = "Count") +
-  theme_minimal()
-```
-Pass Length (Quantitative):
-```{r}
-ggplot(plays_filtered, aes(x = passLength)) +
-  geom_histogram(binwidth = 2, fill = "steelblue", color = "black") +
-  labs(title = "Distribution of Pass Length", x = "Pass Length", y = "Count") +
-  theme_minimal()
-```
-pff_passCoverage (Categorical):
-```{r}
-ggplot(plays_filtered, aes(x = pff_passCoverage)) +
-  geom_bar(fill = "steelblue", color = "black") +
-  labs(title = "Distribution of Pass Coverage", x = "Pass Coverage", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-dropbackType (Categorical):
-```{r}
-ggplot(plays_filtered, aes(x = dropbackType)) +
-  geom_bar(fill = "steelblue", color = "black") +
-  labs(title = "Distribution of Dropback Type", x = "Dropback Type", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 
 ### Relationships Between Variables
 Before building predictive models, it’s important to investigate potential 
