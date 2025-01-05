@@ -366,17 +366,18 @@ longer-yardage situations.
 
 Here for the predictive model, we implemented a multinomial regression model 
 because the prediction outcome is nominal with multiple categories which is 
-perfect for this kind of model. The model predicts the pass result using 
-variables from the EDA above that were correlated with pass result: 
-playClockAtSnap, down, yardsToGo, passLength, pff_passCoverage, dropbackType. To 
-train the model, we have partitioned the data to a train_data and a test_data in 
-which we will train the model on the train_data and test the model's success on 
-the test_data. A common ratio for training and testing is 80 to 20 percent of 
-the whole model which is used below. The code block below splits the 
-plays_filtered data and trains the model named passResult_model. 
-Below are the results: 
+perfect for this kind of model. We discovered that playClockAtSnap, down, 
+yardsToGo, passLength, pff_passCoverage, dropbackType are all correlated with 
+passResult to some degree. The model predicts the pass result using 
+these variables. To train the model, we have partitioned the data to a 
+train_data and a test_data in which we will train the model on the train_data 
+and test the model's success on the test_data. A common ratio for training and 
+testing is 80 to 20 percent of the whole model which is used below. The code 
+block below splits the plays_filtered data and trains the model named 
+passResult_model. Below are the results: 
 ```{r}
 library(caret)
+library(nnet)
 
 set.seed(123)
 
@@ -390,7 +391,7 @@ passResult_model <- multinom(
   data = train_data
 )
 
-summary(success_model)
+summary(passResult_model)
 ```
 The summary above gives a variety of statistics including coefficients and 
 standard errors of all the different variables and relative subcategories. 
@@ -415,22 +416,11 @@ print(conf_matrix)
 
 
 
-Now, to evaluate the accuracy of the predicted classes from this model we look
-at this confusion matrix. We see that the predicted class heavily favors
-completed passes (which makes sense given that it has the highest probability
-of occurring according to our model).
 
-```{r}
-# Get predicted classes from the model
-predicted_classes <- predict(multinom_model, type = "class")
 
-# Check distribution of predicted classes
-table(predicted_classes)
 
-# Compare with the actual distribution
-table(plays_filtered$passResult)
 
-```
+
 Now we want to attempt to build a model that can help us find the optimal
 play clock time at which to snap the ball given the yards left to go, the down,
 the game clock and the offensive formation.
