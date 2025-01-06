@@ -675,7 +675,9 @@ cm <- confusionMatrix(
   factor(true_test, levels = c(1,2,3))
 )
 print(cm)
+```
 
+```{r, include = False}
 # -----------------------------------------------------
 # 12) Plot Training & Test Loss
 # -----------------------------------------------------
@@ -692,6 +694,7 @@ ggplot(loss_df, aes(x = Epoch)) +
                      values = c("Train Loss" = "blue", "Test Loss" = "red")) +
   labs(title = "Training and Test Loss", x = "Epoch", y = "Loss") +
   theme_minimal()
+
 
 ```
 
