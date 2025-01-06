@@ -480,15 +480,21 @@ and 71.39%.
 
 ## Neural Network Model
 
+We implemented a neural network (deep learning model) to classify passResult 
+using the same features as the multinomial model. Neural networks can model 
+linearity and nonlinearity, taking a different approach from standard linear 
+models. As before, we filtered data for pass results C, I, IN. Numeric columns 
+were scaled and dummy variables for categorical columns. For training, we used 
+an 80-20 train-test split and built a three-layer neural network with ReLU 
+activations and dropout. We used cross-entropy loss for classification and Adam 
+optimization. Throughout training, we monitored training and test losses to 
+detect overfitting (avoid “memorization” of the data set).
+
 ```{r}
 library(torch)
 library(dplyr)
 library(ggplot2)
 library(caret)
-
-# -----------------------------------------------------
-# 1) Data Preparation
-# -----------------------------------------------------
 
 # Filter data to relevant passResult values and drop rows with NA
 # Also filter out rows where total_offensive_motion, offensive_width, or defensive_width are missing
@@ -513,9 +519,6 @@ plays_filtered <- plays_filtered %>%
 plays_filtered$passResult <- factor(plays_filtered$passResult, levels = c("C", "I", "IN"))
 plays_filtered$passResult <- as.numeric(plays_filtered$passResult)
 
-# -----------------------------------------------------
-# 2) Create Dummy Columns (pff_passCoverage + dropbackType)
-# -----------------------------------------------------
 plays_filtered$pff_passCoverage <- factor(plays_filtered$pff_passCoverage)
 plays_filtered$dropbackType     <- factor(plays_filtered$dropbackType)
 
@@ -524,18 +527,12 @@ categorical_dummies <- model.matrix(
   data = plays_filtered
 )
 
-# -----------------------------------------------------
-# 3) Scale Numeric Columns
-# -----------------------------------------------------
 # Include total_offensive_motion + width_ratio in numeric columns
 num_cols <- c("playClockAtSnap", "down", "yardsToGo", "passLength",
               "total_offensive_motion", "width_ratio")
 
 plays_filtered[num_cols] <- scale(plays_filtered[num_cols])
 
-# -----------------------------------------------------
-# 4) Build Final Feature Matrix X
-# -----------------------------------------------------
 X <- cbind(
   # The scaled numeric columns
   plays_filtered[, num_cols],
@@ -544,20 +541,11 @@ X <- cbind(
 )
 X <- as.matrix(X)  # convert to numeric matrix
 
-# -----------------------------------------------------
-# 5) Define Target
-# -----------------------------------------------------
 y <- plays_filtered$passResult
 
-# -----------------------------------------------------
-# Convert R objects to Torch Tensors
-# -----------------------------------------------------
 X_tensor <- torch_tensor(X, dtype = torch_float())
 y_tensor <- torch_tensor(y, dtype = torch_long())
 
-# -----------------------------------------------------
-# 6) Train-Test Split
-# -----------------------------------------------------
 set.seed(1)
 train_indices <- sample(seq_len(nrow(X)), size = 0.8 * nrow(X))
 test_indices  <- setdiff(seq_len(nrow(X)), train_indices)
@@ -567,9 +555,6 @@ y_train <- y_tensor[train_indices]
 X_test  <- X_tensor[test_indices, ]
 y_test  <- y_tensor[test_indices]
 
-# -----------------------------------------------------
-# 7) Define a Neural Network Model
-# -----------------------------------------------------
 model <- nn_module(
   initialize = function(num_features) {
     self$fc1    <- nn_linear(num_features, 8)
@@ -592,15 +577,9 @@ model <- nn_module(
 
 torch_model <- model(ncol(X))
 
-# -----------------------------------------------------
-# 8) Define Loss Function (unweighted) & Optimizer
-# -----------------------------------------------------
 loss_fn  <- nn_cross_entropy_loss()
 optimizer <- optim_adam(torch_model$parameters, lr = 0.0005, weight_decay = 1e-4)
 
-# -----------------------------------------------------
-# 9) Training Loop
-# -----------------------------------------------------
 num_epochs <- 50
 batch_size <- 50
 
@@ -648,9 +627,7 @@ for (epoch in seq_len(num_epochs)) {
   }
 }
 
-# -----------------------------------------------------
-# 10) Evaluate Overall Accuracy
-# -----------------------------------------------------
+
 torch_model$eval()
 with_no_grad({
   full_predictions  <- torch_model(X_tensor)
@@ -664,9 +641,7 @@ results_df <- data.frame(
   PredictedPassResult = as_array(predicted_classes)
 )
 
-# -----------------------------------------------------
-# 11) Evaluate on Test Set & Build Confusion Matrix
-# -----------------------------------------------------
+
 torch_model$eval()
 with_no_grad({
   test_preds <- torch_model(X_test)
@@ -684,9 +659,7 @@ print(cm)
 ```
 
 ```{r, include = FALSE}
-# -----------------------------------------------------
-# 12) Plot Training & Test Loss
-# -----------------------------------------------------
+
 loss_df <- data.frame(
   Epoch = seq_len(num_epochs),
   TrainLoss = train_losses,
