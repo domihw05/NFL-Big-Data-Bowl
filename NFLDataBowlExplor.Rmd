@@ -490,7 +490,8 @@ library(caret)
 # 1) Data Preparation
 # -----------------------------------------------------
 
-# Filter the data to only relevant passResult values and drop rows with NA
+# Filter data to relevant passResult values and drop rows with NA
+# Also filter out rows where total_offensive_motion, offensive_width, or defensive_width are missing
 plays_filtered <- plays_filtered %>%
   filter(passResult %in% c("C", "I", "IN")) %>%
   filter(
@@ -500,8 +501,13 @@ plays_filtered <- plays_filtered %>%
     !is.na(passLength),
     !is.na(pff_passCoverage),
     !is.na(dropbackType),
-    !is.na(passResult)
-  )
+    !is.na(passResult),
+    !is.na(total_offensive_motion),
+    !is.na(offensive_width),
+    !is.na(defensive_width)
+  ) %>%
+  # Create a new column for ratio: offensive_width / defensive_width
+  mutate(width_ratio = offensive_width / defensive_width)
 
 # Re-factor passResult in the desired order: "C" -> 1, "I" -> 2, "IN" -> 3
 plays_filtered$passResult <- factor(plays_filtered$passResult, levels = c("C", "I", "IN"))
@@ -521,14 +527,17 @@ categorical_dummies <- model.matrix(
 # -----------------------------------------------------
 # 3) Scale Numeric Columns
 # -----------------------------------------------------
-num_cols <- c("playClockAtSnap", "down", "yardsToGo", "passLength")
+# Include total_offensive_motion + width_ratio in numeric columns
+num_cols <- c("playClockAtSnap", "down", "yardsToGo", "passLength",
+              "total_offensive_motion", "width_ratio")
+
 plays_filtered[num_cols] <- scale(plays_filtered[num_cols])
 
 # -----------------------------------------------------
 # 4) Build Final Feature Matrix X
 # -----------------------------------------------------
 X <- cbind(
-  # The four scaled numeric columns
+  # The scaled numeric columns
   plays_filtered[, num_cols],
   # The dummy columns
   categorical_dummies
