@@ -658,14 +658,11 @@ with_no_grad({
   correct           <- (predicted_classes == y_tensor)$to(dtype = torch_float())
   overall_accuracy  <- torch_mean(correct)$item()
 })
-cat(sprintf("Overall Classification Accuracy: %.2f%%\n", 100 * overall_accuracy))
-
 # Create a data frame of true vs. predicted results
 results_df <- data.frame(
   TruePassResult      = as_array(y_tensor),
   PredictedPassResult = as_array(predicted_classes)
 )
-head(results_df, 50)
 
 # -----------------------------------------------------
 # 11) Evaluate on Test Set & Build Confusion Matrix
@@ -686,7 +683,7 @@ cm <- confusionMatrix(
 print(cm)
 ```
 
-```{r, include = False}
+```{r, include = FALSE}
 # -----------------------------------------------------
 # 12) Plot Training & Test Loss
 # -----------------------------------------------------
